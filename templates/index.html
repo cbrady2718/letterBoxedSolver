@@ -1,0 +1,585 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NYT Letterboxed Puzzle Solver</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            text-align: center;
+        }
+        .square-container {
+            display: inline-block;
+            margin: 20px;
+            position: relative;
+        }
+        .row {
+            display: flex;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+        }
+        .middle-section {
+            display: flex;
+            justify-content: space-between;
+            width: 261px;
+            margin: 10px auto;
+            height: 150px;
+            position: relative;
+        }
+        .side {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 2;
+        }
+        .center-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 185px;
+            height: 185px;
+            background-color: #f0f0f0;
+            border: 2px solid #ccc;
+            z-index: 1;
+            border-radius: 5px;
+        }
+        input {
+            width: 30px;
+            height: 30px;
+            margin: 5px;
+            text-align: center;
+            text-transform: uppercase;
+            border: 1px solid #999;
+            border-radius: 4px;
+            background-color: white;
+        }
+        #solution {
+            margin-top: 20px;
+            padding: 10px;
+            min-height: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #lineContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .solution-line {
+            stroke: #4CAF50;
+            stroke-width: 5;
+            stroke-linecap: round;
+            fill: none;
+        }
+        /* New styles for word formation display */
+        #wordFormationArea {
+            margin: 20px auto;
+            min-height: 60px;
+            width: 80%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .word-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .word1 {
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 28px;
+            letter-spacing: 2px;
+        }
+        .word2 {
+            color: #ADD8E6;
+            font-weight: bold;
+            font-size: 28px;
+            letter-spacing: 2px;
+        }
+        .word-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        #word1Display, #word2Display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .letter {
+            display: inline-block;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <h1>NYT Letterboxed Solver</h1>
+    <div class="square-container">
+        <!-- Top row -->
+        <svg id="lineContainer" width="100%" height="100%" style="position: absolute; top: 0; left: 0;">
+        </svg>
+        <div class="row">
+            <input type="text" maxlength="1" id="top1">
+            <input type="text" maxlength="1" id="top2">
+            <input type="text" maxlength="1" id="top3">
+        </div>
+        
+        <!-- Middle section with sides and center box -->
+        <div class="middle-section">
+            <div class="side left-side">
+                <input type="text" maxlength="1" id="left1">
+                <input type="text" maxlength="1" id="left2">
+                <input type="text" maxlength="1" id="left3">
+            </div>
+            <div class="center-box"></div>
+            <div class="side right-side">
+                <input type="text" maxlength="1" id="right1">
+                <input type="text" maxlength="1" id="right2">
+                <input type="text" maxlength="1" id="right3">
+            </div>
+        </div>
+        
+        <!-- Bottom row -->
+        <div class="row">
+            <input type="text" maxlength="1" id="bottom1">
+            <input type="text" maxlength="1" id="bottom2">
+            <input type="text" maxlength="1" id="bottom3">
+        </div>
+    </div>
+
+    <div class="button-container">
+        <button id="generateButton">Generate Letters</button>
+        <button id="solveButton">Solve</button>
+    </div>
+
+    <div id="wordFormationArea">
+        <div class="word-container">
+            <div id="word1Display">
+                <div class="word1" id="word1Text"></div>
+            </div>
+            <div id="word2Display">
+                <div class="word2" id="word2Text"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="solution"></div>
+
+    <script>
+        $(document).ready(function() {
+            // Auto-advance to next input when a letter is entered
+            $('input').on('input', function() {
+                if (this.value.length === 1) {
+                    $(this).next('input').focus();
+                }
+            });
+
+            function getSelectorByLetter(letter) {
+                console.log('entering map')
+                console.log(letter)
+                console.log(window.letterMap)
+                return window.letterMap ? window.letterMap[letter] : null;
+            }
+
+            function simpleBackgroundChange(element, newColor) {
+                // Get the computed background color
+                const currentColor = window.getComputedStyle(element[0]).backgroundColor;
+                
+                // Convert the RGB format to hex format for comparison
+                // This is needed because even if your CSS specifies "#4CAF50", 
+                // getComputedStyle will return it as "rgb(76, 175, 80)"
+                function rgbToHex(rgb) {
+                    // Extract the r, g, b components
+                    const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+                    if (!match) return "";
+                    
+                    function componentToHex(c) {
+                        const hex = parseInt(c, 10).toString(16);
+                        return hex.length === 1 ? "0" + hex : hex;
+                    }
+                    
+                    return "#" + 
+                        componentToHex(match[1]) + 
+                        componentToHex(match[2]) + 
+                        componentToHex(match[3]);
+                }
+                
+                const currentHex = rgbToHex(currentColor).toUpperCase();
+                const greenHex = "#4CAF50";
+                
+                // If current background is "#4CAF50", create a gradient
+                if (currentHex === greenHex) {
+                    $(element).css('background', `linear-gradient(to right, ${greenHex} 50%, ${newColor} 50%)`);
+                } 
+                // For white or any other color, just set the full background
+                else {
+                    $(element).css('background-color', newColor);
+                }
+            }
+
+            function drawLine(start, end, color = '#4CAF50', delay = 0, changeStartBackground = false, currentPosition) {
+                console.log('in draw func')
+                console.log(start)
+                console.log(end)
+                const containerRect = $('.square-container')[0].getBoundingClientRect();
+                const startRect = start[0].getBoundingClientRect();
+                const endRect = end[0].getBoundingClientRect();
+                
+                // Determine start position based on element position
+                if (start.is('#bottom1, #bottom2, #bottom3')) {
+                    // Bottom elements: start from the top center
+                    startX = startRect.left + (startRect.width / 2) - containerRect.left;
+                    startY = startRect.top - containerRect.top;
+                } else if (start.is('#top1, #top2, #top3')) {
+                    // Top elements: start from the bottom center
+                    startX = startRect.left + (startRect.width / 2) - containerRect.left;
+                    startY = startRect.bottom - containerRect.top;
+                } else if (start.is('#left1, #left2, #left3')) {
+                    // Left elements: start from the right center
+                    startX = startRect.right - containerRect.left;
+                    startY = startRect.top + (startRect.height / 2) - containerRect.top;
+                } else if (start.is('#right1, #right2, #right3')) {
+                    // Right elements: start from the left center
+                    startX = startRect.left - containerRect.left;
+                    startY = startRect.top + (startRect.height / 2) - containerRect.top;
+                } else {
+                    // Default to center of the element
+                    startX = startRect.left + (startRect.width / 2) - containerRect.left;
+                    startY = startRect.top + (startRect.height / 2) - containerRect.top;
+                }
+                
+                // Determine end position based on element position
+                if (end.is('#bottom1, #bottom2, #bottom3')) {
+                    // Bottom elements: end at the top center
+                    endX = endRect.left + (endRect.width / 2) - containerRect.left;
+                    endY = endRect.top - containerRect.top;
+                } else if (end.is('#top1, #top2, #top3')) {
+                    // Top elements: end at the bottom center
+                    endX = endRect.left + (endRect.width / 2) - containerRect.left;
+                    endY = endRect.bottom - containerRect.top;
+                } else if (end.is('#left1, #left2, #left3')) {
+                    // Left elements: end at the right center
+                    endX = endRect.right - containerRect.left;
+                    endY = endRect.top + (endRect.height / 2) - containerRect.top;
+                } else if (end.is('#right1, #right2, #right3')) {
+                    // Right elements: end at the left center
+                    endX = endRect.left - containerRect.left;
+                    endY = endRect.top + (endRect.height / 2) - containerRect.top;
+                } else {
+                    // Default to center of the element
+                    endX = endRect.left + (endRect.width / 2) - containerRect.left;
+                    endY = endRect.top + (endRect.height / 2) - containerRect.top;
+                }
+                
+                // Create a new line element
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute('class', 'solution-line');
+                line.setAttribute('x1', startX);
+                line.setAttribute('y1', startY);
+                // Don't set initial x2/y2 - let the animation handle it
+                line.setAttribute('stroke', color);
+                line.style.stroke = color;
+                line.setAttribute('stroke-width', '3');
+                line.setAttribute('stroke-linecap', 'round');
+                line.setAttribute('marker-end', 'url(#arrowhead-' + color.replace('#', '') + ')');
+                // Set initial visibility to hidden
+                line.style.visibility = 'hidden';
+                
+                // Add the new line to the SVG container
+                $('#lineContainer').append(line);
+                
+                // Create and add the animations
+                const animate1 = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+                animate1.setAttribute('attributeName', 'x2');
+                animate1.setAttribute('from', startX);
+                animate1.setAttribute('to', endX);
+                animate1.setAttribute('dur', '1s');
+                animate1.setAttribute('begin', `${delay}s`);
+                animate1.setAttribute('fill', 'freeze');
+                
+                const animate2 = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+                animate2.setAttribute('attributeName', 'y2');
+                animate2.setAttribute('from', startY);
+                animate2.setAttribute('to', endY);
+                animate2.setAttribute('dur', '1s');
+                animate2.setAttribute('begin', `${delay}s`);
+                animate2.setAttribute('fill', 'freeze');
+                
+                // Add a set animation to make the line visible when it starts
+                const setVisible = document.createElementNS("http://www.w3.org/2000/svg", "set");
+                setVisible.setAttribute('attributeName', 'visibility');
+                setVisible.setAttribute('to', 'visible');
+                setVisible.setAttribute('begin', `${delay}s`);
+                setVisible.setAttribute('dur', 'indefinite');
+
+                if (changeStartBackground) {
+                    animate1.addEventListener('beginEvent', function() {
+                        simpleBackgroundChange(start, color);
+                        // Get and display the letter for the first element in the animation
+                        const startLetter = start.val().toUpperCase();
+                        if (color === '#4CAF50') {
+                            showLetterInWord(1, 0, startLetter);
+                        } else {
+                            showLetterInWord(2, 0, startLetter);
+                        }
+                    });
+                }
+                
+                animate2.addEventListener('endEvent', function() {
+                    simpleBackgroundChange(end, color);
+                    // Get and display the letter for the end element in the animation
+                    const endLetter = end.val().toUpperCase();
+                    
+                    if (color === '#4CAF50') {
+                        // For first word (green)
+                        showLetterInWord(1, currentPosition, endLetter);
+                    } else {
+                        // For second word (blue)
+                        showLetterInWord(2, currentPosition, endLetter);
+                    }
+                });
+
+                line.appendChild(animate1);
+                line.appendChild(animate2);
+                line.appendChild(setVisible);
+
+                return line;
+            }
+            
+            // Function to prepare word displays
+            function prepareWordDisplays(word1, word2) {
+                $('#word1Text').empty();
+                $('#word2Text').empty();
+                
+                // Create spans for each letter in word1
+                for (let i = 0; i < word1.length; i++) {
+                    $('#word1Text').append(`<span class="letter" id="word1-letter-${i}">${word1[i].toUpperCase()}</span>`);
+                }
+                
+                // Create spans for each letter in word2
+                for (let i = 0; i < word2.length; i++) {
+                    $('#word2Text').append(`<span class="letter" id="word2-letter-${i}">${word2[i].toUpperCase()}</span>`);
+                }
+            }
+            
+            // Function to show a specific letter in a word
+            function showLetterInWord(wordNum, position, letter) {
+                // Make the letter visible
+                if (wordNum === 1) {
+                    $(`#word1-letter-${position}`).css('opacity', 1);
+                } else {
+                    $(`#word2-letter-${position}`).css('opacity', 1);
+                }
+            }
+            
+            function clearLines() {
+                $('#lineContainer').empty();
+                // Clear the word displays
+                $('#word1Text').empty();
+                $('#word2Text').empty();
+            }
+            
+            function drawWords(word1, word2) {
+                // First, clear any existing display
+                clearLines();
+                
+                // Set up the word displays
+                prepareWordDisplays(word1, word2);
+                
+                // Draw lines for first word
+                for (let j = 1; j < word1.length; j++) {
+                    let first = getSelectorByLetter(word1[j-1].toUpperCase());
+                    let second = getSelectorByLetter(word1[j].toUpperCase());
+                    let isFirst = j == 1;
+                    drawLine($(first), $(second), '#4CAF50', (j - 1) * 1, isFirst, j); // Green for word one
+                }
+                
+                let firstWordDelay = (word1.length - 1) * 1;
+                
+                // Draw lines for second word
+                for (let j = 1; j < word2.length; j++) {
+                    let first = getSelectorByLetter(word2[j-1].toUpperCase());
+                    let second = getSelectorByLetter(word2[j].toUpperCase());
+                    let isFirst = j == 1;
+                    drawLine($(first), $(second), '#ADD8E6', firstWordDelay + (j - 1) * 1, isFirst,j); // Blue for word two
+                }
+            }
+            
+            function setLetterMap(){
+                const letterMap = {}
+                letterMap[$('#top1').val().toUpperCase()] = '#top1';
+                letterMap[$('#top2').val().toUpperCase()] = '#top2';
+                letterMap[$('#top3').val().toUpperCase()] = '#top3';
+                letterMap[$('#bottom1').val().toUpperCase()] = '#bottom1';
+                letterMap[$('#bottom2').val().toUpperCase()] = '#bottom2';
+                letterMap[$('#bottom3').val().toUpperCase()] = '#bottom3';
+                letterMap[$('#left1').val().toUpperCase()] = '#left1';
+                letterMap[$('#left2').val().toUpperCase()] = '#left2';
+                letterMap[$('#left3').val().toUpperCase()] = '#left3';
+                letterMap[$('#right1').val().toUpperCase()] = '#right1';
+                letterMap[$('#right2').val().toUpperCase()] = '#right2';
+                letterMap[$('#right3').val().toUpperCase()] = '#right3';
+                return letterMap
+            }
+
+            function validateValues() {
+                const data = {
+                    top1: $('#top1').val().toUpperCase(),
+                    top2: $('#top2').val().toUpperCase(),
+                    top3: $('#top3').val().toUpperCase(),
+                    left1: $('#left1').val().toUpperCase(),
+                    left2: $('#left2').val().toUpperCase(),
+                    left3: $('#left3').val().toUpperCase(),
+                    right1: $('#right1').val().toUpperCase(),
+                    right2: $('#right2').val().toUpperCase(),
+                    right3: $('#right3').val().toUpperCase(),
+                    bottom1: $('#bottom1').val().toUpperCase(),
+                    bottom2: $('#bottom2').val().toUpperCase(),
+                    bottom3: $('#bottom3').val().toUpperCase()
+                };
+
+                // Send data to Flask backend for validation
+                fetch('/validate', {
+                    method: 'POST',
+                    headers: {
+                    'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.all_match) {
+                    console.log("returning true" )
+                    return true;
+                    } else {
+                    // You can display which values don't match
+                    console.log("returning false")
+                    return false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+            
+            
+
+            $('#generateButton').click(function() {
+                $.ajax({
+                    url: '/generate',
+                    type: 'GET',
+                    success: function(response) {
+                        // Expecting response.letters to be a list of lists
+                        if (response.letters) {
+                            console.log(response.letters)
+                            const lists = response.letters;
+                            
+                            const letterMap = {};
+
+                            // Fill top row
+                            $('#top1').val(lists[0][0]); letterMap[lists[0][0]] = '#top1';
+                            $('#top2').val(lists[0][1]); letterMap[lists[0][1]] = '#top2';
+                            $('#top3').val(lists[0][2]); letterMap[lists[0][2]] = '#top3';
+
+                            // Fill left side
+                            $('#left1').val(lists[1][0]); letterMap[lists[1][0]] = '#left1';
+                            $('#left2').val(lists[1][1]); letterMap[lists[1][1]] = '#left2';
+                            $('#left3').val(lists[1][2]); letterMap[lists[1][2]] = '#left3';
+
+                            // Fill right side
+                            $('#right1').val(lists[2][0]); letterMap[lists[2][0]] = '#right1';
+                            $('#right2').val(lists[2][1]); letterMap[lists[2][1]] = '#right2';
+                            $('#right3').val(lists[2][2]); letterMap[lists[2][2]] = '#right3';
+
+                            // Fill bottom row
+                            $('#bottom1').val(lists[3][0]); letterMap[lists[3][0]] = '#bottom1';
+                            $('#bottom2').val(lists[3][1]); letterMap[lists[3][1]] = '#bottom2';
+                            $('#bottom3').val(lists[3][2]); letterMap[lists[3][2]] = '#bottom3';
+
+                            // Store the map globally for later access
+                            window.letterMap = setLetterMap()
+                            
+                            // Clear any existing display
+                            clearLines();
+                        }
+                    },
+                    error: function(error) {
+                        $('#solution').text('Error generating letters');
+                    }
+                });
+            });
+
+
+
+            $('#solveButton').click(function() {
+                const data = {
+                    top1: $('#top1').val().toUpperCase(),
+                    top2: $('#top2').val().toUpperCase(),
+                    top3: $('#top3').val().toUpperCase(),
+                    left1: $('#left1').val().toUpperCase(),
+                    left2: $('#left2').val().toUpperCase(),
+                    left3: $('#left3').val().toUpperCase(),
+                    right1: $('#right1').val().toUpperCase(),
+                    right2: $('#right2').val().toUpperCase(),
+                    right3: $('#right3').val().toUpperCase(),
+                    bottom1: $('#bottom1').val().toUpperCase(),
+                    bottom2: $('#bottom2').val().toUpperCase(),
+                    bottom3: $('#bottom3').val().toUpperCase()
+                };
+                $.ajax({
+                    url: '/solve',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function(response) {
+                        window.letterMap = setLetterMap()
+                        clearLines();
+                        let solutionText = 'NYT Preferred Solution:\n';
+                        solutionText += `${response.solution[0][0]} -> ${response.solution[0][1]}\n\n`;
+                        solutionText += 'All Generated Solutions:\n';
+                        
+                        // Add other solutions starting from the second element
+                        for (let i = 1; i < response.solution.length; i++) {
+                            solutionText += `${response.solution[i][0]} -> ${response.solution[i][1]}\n`;
+                        }
+                        
+                        // Display formatted text (replace \n with <br> for HTML)
+                        $('#solution').html(solutionText.replace(/\n/g, '<br>'));
+                        
+                        // Draw lines for preferred solution
+                        let preferred = response.solution[0];
+                        drawWords(preferred[0], preferred[1]);
+                    },
+                    error: function(error) {
+                        $('#solution').text('Error getting solution');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -134,6 +134,27 @@
             opacity: 0;
             transition: opacity 0.3s ease;
         }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #loading-message {
+            display: none;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
@@ -175,6 +196,13 @@
         <button id="generateButton">Generate Letters</button>
         <button id="solveButton">Solve</button>
     </div>
+
+    <div id="loading-message">
+        <span id="message-text">Not using today's NYT values, loading new dictionary</span>
+        <div class="spinner"></div>
+    </div>
+    
+    <div id="result"></div>
 
     <div id="wordFormationArea">
         <div class="word-container">
@@ -446,7 +474,27 @@
                 return letterMap
             }
 
-            function validateValues() {
+            function loadDictionary() {
+                return new Promise((resolve, reject) => {
+                    fetch('/load_dictionary', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                    console.log("Dictionary loaded:", data);
+                    resolve(data);
+                    })
+                    .catch(error => {
+                    console.error('Error loading dictionary:', error);
+                    reject(error);
+                    });
+                });
+            }
+
+            async function validateValues() {
                 const data = {
                     top1: $('#top1').val().toUpperCase(),
                     top2: $('#top2').val().toUpperCase(),
@@ -461,34 +509,33 @@
                     bottom2: $('#bottom2').val().toUpperCase(),
                     bottom3: $('#bottom3').val().toUpperCase()
                 };
-
-                // Send data to Flask backend for validation
-                fetch('/validate', {
+                
+                try {
+                    const response = await fetch('/validate', {
                     method: 'POST',
                     headers: {
-                    'Content-Type': 'application/json',
+                        'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(data)
-                })
-                .then(response => response.json())
-                .then(result => {
+                    });
+                    
+                    const result = await response.json();
+                    
                     if (result.all_match) {
-                    console.log("returning true" )
+                    console.log("returning true");
                     return true;
                     } else {
                     // You can display which values don't match
-                    console.log("returning false")
+                    console.log("returning false");
                     return false;
                     }
-                })
-                .catch(error => {
+                } catch (error) {
                     console.error('Error:', error);
-                });
+                    return false; // Default return value in case of error
+                }
             }
-            
-            
 
-            $('#generateButton').click(function() {
+            $('#generateButton').click(async function() {
                 $.ajax({
                     url: '/generate',
                     type: 'GET',
@@ -535,7 +582,8 @@
 
 
 
-            $('#solveButton').click(function() {
+            $('#solveButton').click(async function() {
+                clearLines();
                 const data = {
                     top1: $('#top1').val().toUpperCase(),
                     top2: $('#top2').val().toUpperCase(),
@@ -550,36 +598,51 @@
                     bottom2: $('#bottom2').val().toUpperCase(),
                     bottom3: $('#bottom3').val().toUpperCase()
                 };
-                $.ajax({
-                    url: '/solve',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(data),
-                    success: function(response) {
-                        window.letterMap = setLetterMap()
-                        clearLines();
-                        let solutionText = 'NYT Preferred Solution:\n';
-                        solutionText += `${response.solution[0][0]} -> ${response.solution[0][1]}\n\n`;
-                        solutionText += 'All Generated Solutions:\n';
-                        
-                        // Add other solutions starting from the second element
-                        for (let i = 1; i < response.solution.length; i++) {
-                            solutionText += `${response.solution[i][0]} -> ${response.solution[i][1]}\n`;
-                        }
-                        
-                        // Display formatted text (replace \n with <br> for HTML)
-                        $('#solution').html(solutionText.replace(/\n/g, '<br>'));
-                        
-                        // Draw lines for preferred solution
-                        let preferred = response.solution[0];
-                        drawWords(preferred[0], preferred[1]);
+
+                const result = await validateValues();
+
+                const loadingMessage = document.getElementById('loading-message');
+                const resultDiv = document.getElementById('result');
+
+                if(!result){
+                    loadingMessage.style.display = 'block';
+
+                    await loadDictionary();
+
+                    loadingMessage.style.display = 'none';
+                }
+
+                const solveResponse = await fetch('/solve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
                     },
-                    error: function(error) {
-                        $('#solution').text('Error getting solution');
-                    }
+                    body: JSON.stringify(data)
                 });
-            });
-        });
+                    
+                const response = await solveResponse.json();
+
+                window.letterMap = setLetterMap();
+                
+                
+                let solutionText = 'NYT Preferred Solution:\n';
+                solutionText += `${response.solution[0][0]} -> ${response.solution[0][1]}\n\n`;
+                solutionText += 'All Generated Solutions:\n';
+                
+                // Add other solutions starting from the second element
+                for (let i = 1; i < response.solution.length; i++) {
+                solutionText += `${response.solution[i][0]} -> ${response.solution[i][1]}\n`;
+                }
+                
+                // Display formatted text (replace \n with <br> for HTML)
+                $('#solution').html(solutionText.replace(/\n/g, '<br>'));
+                
+                // Draw lines for preferred solution
+                let preferred = response.solution[0];
+                drawWords(preferred[0], preferred[1]);
+                    
+            }) 
+       });
     </script>
 </body>
 </html>

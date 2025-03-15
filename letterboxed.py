@@ -34,8 +34,13 @@ def getNYTDict():
     return [trie,theirSol]
 
 nytDict = getNYTDict()
+global new_trie
+global nytSol
+global usingNYT
+usingNYT = True
 new_trie, nytSol = nytDict[0], nytDict[1]
-new_trie = trieClass.load_trie_json('betterWords.json')
+
+#new_trie = trieClass.load_trie_json('betterWords.json')
 class UndirectedGraph:
     def __init__(self):
         self.graph = {}  # Dictionary to store vertices and their edges
@@ -139,17 +144,6 @@ wordSet = []
 
 rankedWords = []
 
-def traverse2(node: trieClass.TrieNode, prfix: str, prevWord: str):
-    if len(prfix) > 1 and node.getValid() and prevWord == '':
-        traverse2(node)
-    if prfix == '':
-        options = g.get_vertices()
-    else:
-        options = g.get_neighbors(prfix[-1])
-    for element in options:
-        if element in node.children:
-            traverse(node.children[element], prfix+element)
-
 def traverse(node: trieClass.TrieNode, prfix: str):
     if len(prfix) > 1 and node.getValid():
         analyze(prfix)
@@ -162,8 +156,12 @@ def traverse(node: trieClass.TrieNode, prfix: str):
             traverse(node.children[element], prfix+element)
 
 def solutions(word_list, chars):
+    global usingNYT
+    print("GETTING SOLUTIONS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     output = []
-    output.append([nytSol[0].lower(),nytSol[1].lower()])
+    print(usingNYT)
+    if usingNYT:
+        output.append([nytSol[0].lower(),nytSol[1].lower()])
     #print(word_list)
     for word in word_list:
         last = word[len(word)-1]
@@ -181,17 +179,20 @@ app = Flask(__name__)
 fuldict = {}
 
 def getSolutions(letters):
+    global new_trie
     createLetterSet(letters)
     traverse(new_trie.getRoot(), '')
-    print(wordSet)
+    #print(wordSet)
     return solutions(wordSet, letterSet)
 
 @app.route('/load_dictionary', methods=['POST'])
 def run_process():
-    # Get the data from the JavaScript frontend    
-    result = new_trie = trieClass.load_trie_json('betterWords.json')
-    
-    return jsonify(result)
+    # Get the data from the JavaScript frontend
+    global new_trie
+    global usingNYT
+    new_trie = trieClass.load_trie_json('betterWords.json')
+    usingNYT = False
+    return jsonify("Dictionary Loaded")
 
 @app.route('/validate', methods=['POST'])
 def validate():
@@ -224,6 +225,9 @@ def validate():
     print('---------------')
     print(expected_values)
     all_match = client_values == expected_values
+    global usingNYT
+    if all_match:
+        usingNYT = True
     print(jsonify({
         'all_match': all_match,
     }))
@@ -251,6 +255,8 @@ def solve():
     
     letters = [top_letters, left_letters, right_letters, bottom_letters]
     solution = getSolutions(letters)
+    rankedWords.sort()
+    #print(rankedWords)
     return jsonify({'solution': solution})
 
 if __name__ == '__main__':

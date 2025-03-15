@@ -105,16 +105,11 @@ def load_trie_mmap(filename="trie.pickle"):
         # Load the trie from the memory mapped file
         trie = pickle.load(mm)
         return trie
-"""trie = Trie()
-dictionary_path = "/Users/chrbrady/Desktop/letterBoxApp/wordlist"
-load_dictionary_into_trie(dictionary_path, trie)
-save_trie_pickle_mmap(trie, "betterwords.pickle")"""
-'''# Example Usage
+"""
 trie = Trie()
-#dictionary_path = "/Users/chrbrady/nltk_data/corpora/words/en"  # Standard dictionary file path on Linux/macOS
-#dictionary_path = "/Users/chrbrady/Downloads/words_alpha.txt"
 dictionary_path = "/Users/chrbrady/Desktop/letterBoxApp/wordlist"
 load_dictionary_into_trie(dictionary_path, trie)
-
-save_trie_json(trie, 'michWords.json')
-'''
+save_trie_pickle_mmap(trie, "betterwords.pickle")
+load_trie_mmap("betterwords.pickle")
+# Example Usage
+"""

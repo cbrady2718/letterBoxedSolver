@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 
 import requests
 from bs4 import BeautifulSoup
@@ -190,7 +191,11 @@ def run_process():
     # Get the data from the JavaScript frontend
     global new_trie
     global usingNYT
+    t1 = time.time()
     new_trie = trieClass.load_trie_mmap("betterwords.pickle")
+    t2 = time.time()
+    print('time to load dictionary:')
+    print(t2-t1)
     #new_trie = trieClass.load_trie_json('betterWords.json')
     usingNYT = False
     return jsonify("Dictionary Loaded")

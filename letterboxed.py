@@ -190,7 +190,8 @@ def run_process():
     # Get the data from the JavaScript frontend
     global new_trie
     global usingNYT
-    new_trie = trieClass.load_trie_json('betterWords.json')
+    new_trie = trieClass.load_trie_mmap("betterwords.pickle")
+    #new_trie = trieClass.load_trie_json('betterWords.json')
     usingNYT = False
     return jsonify("Dictionary Loaded")
 

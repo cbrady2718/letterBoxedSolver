@@ -1,4 +1,7 @@
 import json
+import pickle
+import mmap
+import os
 
 
 class TrieNode:
@@ -84,6 +87,28 @@ def load_trie_json(filename="trie.json"):
     trie = Trie()
     trie.root = dict_to_trie(node_dict)
     return trie
+
+
+def save_trie_pickle_mmap(trie, filename="trie.pickle"):
+    """Save trie to a pickle file optimized for memory mapping"""
+    with open(filename, "wb") as f:
+        pickle.dump(trie, f, protocol=pickle.HIGHEST_PROTOCOL)
+    print(f"Trie saved to {filename}")
+
+def load_trie_mmap(filename="trie.pickle"):
+    """Load trie using memory mapping for instant access"""
+    file_size = os.path.getsize(filename)
+    
+    with open(filename, "rb") as f:
+        # Create memory map of the file
+        mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        # Load the trie from the memory mapped file
+        trie = pickle.load(mm)
+        return trie
+"""trie = Trie()
+dictionary_path = "/Users/chrbrady/Desktop/letterBoxApp/wordlist"
+load_dictionary_into_trie(dictionary_path, trie)
+save_trie_pickle_mmap(trie, "betterwords.pickle")"""
 '''# Example Usage
 trie = Trie()
 #dictionary_path = "/Users/chrbrady/nltk_data/corpora/words/en"  # Standard dictionary file path on Linux/macOS

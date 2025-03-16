@@ -5,25 +5,13 @@ import time
 
 import requests
 from bs4 import BeautifulSoup
-
-import trieClass
+from utils.UndirectedGraph import UndirectedGraph
+from utils.nytUtil import getNYTData
+import utils.trieClass as trieClass
 
 '''print('tree loading')
 new_trie = trieClass.load_trie_json('betterWords.json')
 print('tree loaded')''' 
-
-def getNYTData():
-    urlpage = 'https://www.nytimes.com/puzzles/letter-boxed'
-    page = requests.get(urlpage)
-    # parse the html using beautiful soup and store in variable 'soup'
-    soup = BeautifulSoup(page.content, 'html.parser')
-    script_tag = soup.find('script', type='text/javascript', string=re.compile('window.gameData'))
-    pattern = r'window\.gameData\s*=\s*({[^;]*})'
-    contents = re.search(pattern, script_tag.string)
-    contents = contents.group(1)
-    full_data = json.loads(contents)
-    print(full_data['sides'])
-    return full_data
 
 def getNYTDict():
     diction = getNYTData()
@@ -43,92 +31,31 @@ new_trie, nytSol = nytDict[0], nytDict[1]
 #new_trie = trieClass.load_trie_mmap("betterwords.pickle")
 
 #new_trie = trieClass.load_trie_json('betterWords.json')
-class UndirectedGraph:
-    def __init__(self):
-        self.graph = {}  # Dictionary to store vertices and their edges
-        
-    def add_vertex(self, vertex):
-        """Add a vertex to the graph if it doesn't exist."""
-        if vertex not in self.graph:
-            self.graph[vertex] = set()
-    
-    def add_edge(self, vertex1, vertex2):
-        """Add an undirected edge between vertex1 and vertex2."""
-        # Add vertices if they don't exist
-        self.add_vertex(vertex1)
-        self.add_vertex(vertex2)
-        
-        # Add edges in both directions
-        self.graph[vertex1].add(vertex2)
-        self.graph[vertex2].add(vertex1)
-    
-    def remove_edge(self, vertex1, vertex2):
-        """Remove the edge between vertex1 and vertex2."""
-        if vertex1 in self.graph and vertex2 in self.graph:
-            self.graph[vertex1].discard(vertex2)
-            self.graph[vertex2].discard(vertex1)
-    
-    def remove_vertex(self, vertex):
-        """Remove a vertex and all its edges from the graph."""
-        if vertex in self.graph:
-            # Remove all edges containing this vertex
-            for neighbor in self.graph[vertex]:
-                self.graph[neighbor].discard(vertex)
-            # Remove the vertex
-            del self.graph[vertex]
-    
-    def get_vertices(self):
-        """Return all vertices in the graph."""
-        return list(self.graph.keys())
-    
-    def get_edges(self):
-        """Return all edges in the graph as a list of tuples."""
-        edges = set()
-        for vertex in self.graph:
-            for neighbor in self.graph[vertex]:
-                # Sort the vertices to ensure we don't add the same edge twice
-                edge = tuple(sorted([vertex, neighbor]))
-                edges.add(edge)
-        return list(edges)
-    
-    def get_neighbors(self, vertex):
-        """Return all neighbors of a vertex."""
-        if vertex in self.graph:
-            return list(self.graph[vertex])
-        return []
-    
-    def has_edge(self, vertex1, vertex2):
-        """Check if an edge exists between vertex1 and vertex2."""
-        return vertex1 in self.graph and vertex2 in self.graph[vertex1]
-    
-    def degree(self, vertex):
-        """Return the degree of a vertex (number of edges connected to it)."""
-        if vertex in self.graph:
-            return len(self.graph[vertex])
-        return 0
-    
-    def __str__(self):
-        """Return a string representation of the graph."""
-        return f"Vertices: {self.get_vertices()}\nEdges: {self.get_edges()}"
-    
-g = UndirectedGraph()
-letterSet = set()
 
 def createLetterSet(letters):
-    #letters = [['q','s','p'],['n','l','u'],['g','a','i'],['t','h','y']]
+    tempSet = set()
+    for element in letters:
+        for let in element:
+            tempSet.add(let.lower())
+    return tempSet
+
+def createletterGraph(letters):
+    tempGraph = UndirectedGraph()
     for ind in range(len(letters)):
         for indy in range(len(letters[0])):
             letters[ind][indy] = letters[ind][indy].lower()
     for i in range(len(letters)-1):
         for letter in letters[i]:
-            g.add_vertex(letter)
+            tempGraph.add_vertex(letter)
             for j in range(i+1, len(letters)):
                 for l in letters[j]:
-                    g.add_vertex(l)
-                    g.add_edge(letter,l)
-    for element in letters:
-        for let in element:
-            letterSet.add(let.lower())
+                    tempGraph.add_vertex(l)
+                    tempGraph.add_edge(letter,l) 
+    return tempGraph
+global g
+global letterSet
+g = UndirectedGraph()
+letterSet = set()
 
 
 with open("charVals", "r") as file:
@@ -181,13 +108,16 @@ def solutions(word_list, chars):
 
 from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__)
+app = Flask(__name__,static_folder='.')
 
 fuldict = {}
 
 def getSolutions(letters):
     global new_trie
-    createLetterSet(letters)
+    global g
+    global letterSet
+    g = createletterGraph(letters)
+    letterSet = createLetterSet(letters)
     traverse(new_trie.getRoot(), '')
     #print(wordSet)
     return solutions(wordSet, letterSet)

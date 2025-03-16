@@ -1,4 +1,4 @@
-import trieClass
+import utils.trieClass as trieClass
 import time
 
 #10X faster with pickle

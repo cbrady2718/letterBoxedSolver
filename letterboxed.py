@@ -40,6 +40,7 @@ global nytSol
 global usingNYT
 usingNYT = True
 new_trie, nytSol = nytDict[0], nytDict[1]
+#new_trie = trieClass.load_trie_mmap("betterwords.pickle")
 
 #new_trie = trieClass.load_trie_json('betterWords.json')
 class UndirectedGraph:
@@ -139,14 +140,18 @@ def analyze(word):
     lets = set(word)
     for element in lets:
         score += scrabble_values[element]
+    byLen.append((len(word),word))
     rankedWords.append((score, word))
+    byLett.append((len(lets),word))
 
 wordSet = []
 
+byLen = []
 rankedWords = []
+byLett = []
 
 def traverse(node: trieClass.TrieNode, prfix: str):
-    if len(prfix) > 1 and node.getValid():
+    if len(prfix) > 2 and node.getValid():
         analyze(prfix)
     if prfix == '':
         options = g.get_vertices()
@@ -170,6 +175,7 @@ def solutions(word_list, chars):
         for m in matches:
             pair = word + m
             if set(pair) == chars:
+                print('found a solutions!')
                 output.append([word,m])
     return output
 
@@ -261,8 +267,13 @@ def solve():
     
     letters = [top_letters, left_letters, right_letters, bottom_letters]
     solution = getSolutions(letters)
+    byLen.sort()
     rankedWords.sort()
-    #print(rankedWords)
+    byLett.sort()
+    
+    print(rankedWords)
+    # print(byLett)
+    # print(byLen)
     return jsonify({'solution': solution})
 
 if __name__ == '__main__':

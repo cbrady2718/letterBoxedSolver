@@ -95,7 +95,7 @@ def save_trie_pickle_mmap(trie, filename="trie.pickle"):
         pickle.dump(trie, f, protocol=pickle.HIGHEST_PROTOCOL)
     print(f"Trie saved to {filename}")
 
-def load_trie_mmap(filename="trie.pickle"):
+def load_trie_mma2p(filename="trie.pickle"):
     """Load trie using memory mapping for instant access"""
     file_size = os.path.getsize(filename)
     
@@ -105,11 +105,25 @@ def load_trie_mmap(filename="trie.pickle"):
         # Load the trie from the memory mapped file
         trie = pickle.load(mm)
         return trie
-"""
-trie = Trie()
-dictionary_path = "/Users/chrbrady/Desktop/letterBoxApp/wordlist"
-load_dictionary_into_trie(dictionary_path, trie)
-save_trie_pickle_mmap(trie, "betterwords.pickle")
-load_trie_mmap("betterwords.pickle")
-# Example Usage
-"""
+def load_trie_mmap(filename="trie.pickle"):
+    print("Loading trie from", filename)
+    
+    # Explicitly import the Trie class
+    import sys
+    from utils.trieClass import Trie
+    
+    # Register the class with a compatibility name if needed
+    sys.modules['trieClass'] = sys.modules['utils.trieClass']
+    
+    # Now load the pickle
+    file_size = os.path.getsize(filename)
+    with open(filename, "rb") as f:
+        mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        trie = pickle.load(mm)
+    return trie
+#trie = load_trie_mmap("../betterwords.pickle")
+# trie = Trie()
+# dictionary_path = "/Users/chrbrady/Desktop/letterBoxApp/wordlist"
+# # load_dictionary_into_trie(dictionary_path, trie)
+# # save_trie_pickle_mmap(trie, "../betterwords.pickle")
+# load_trie_mmap("../betterwords.pickle")

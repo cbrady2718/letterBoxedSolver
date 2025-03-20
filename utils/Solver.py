@@ -17,8 +17,11 @@ def analyze(word, scrabble_values):
     return(scrabble_score, length_score, letter_score)
 
 def traverse(node: trieClass.TrieNode, prfix: str, letterGraph: GetDictionary.UndirectedGraph):
+    if prfix == '':
+        print(letterGraph.get_vertices())
     global wordSet
     if len(prfix) > 2 and node.getValid():
+        print(prfix)
         wordSet.append(prfix)
     if prfix == '':
         options = letterGraph.get_vertices()
@@ -30,7 +33,10 @@ def traverse(node: trieClass.TrieNode, prfix: str, letterGraph: GetDictionary.Un
 
 def solutions(word_list, chars, nytSol):
     output = []
+    print(len(nytSol))
+    print(nytSol)
     if len(nytSol)> 0:
+        print("im inside")
         output.append([nytSol[0].lower(),nytSol[1].lower()])
     for word in word_list:
         last = word[len(word)-1]

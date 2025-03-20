@@ -41,11 +41,20 @@ app = Flask(__name__,static_folder='.')
 
 @app.route('/load_dictionary', methods=['POST'])
 def run_process():
+    print('entered py')
     global active_trie
     global isNYT
     global recommendedSol
-    dict_dict = GetDictionary.getDict(False)
+    
+    # Get the boolean parameter from the request
+    data = request.get_json()
+    use_nyt = data.get('useNYT', False)  # Default to False if not provided
+    
+    dict_dict = GetDictionary.getDict(use_nyt)
+    print("-----------")
+    print("printing dict_dict")
     print(dict_dict)
+    print("---------")
     active_trie = dict_dict["trie"]
     isNYT = dict_dict["isNYT"]
     recommendedSol = dict_dict["solution"]
@@ -106,6 +115,7 @@ def generate():
 def solve():
     global recommendedSol
     global active_trie
+    global isNYT
     data = request.get_json()
     top_letters = [data['top1'], data['top2'], data['top3']]
     left_letters = [data['left1'], data['left2'], data['left3']]
@@ -114,6 +124,8 @@ def solve():
     
     letters = [top_letters, left_letters, right_letters, bottom_letters]
     print(letters)
+    print(recommendedSol)
+    print(isNYT)
     solution = Solver.getSolutions(letters, active_trie, recommendedSol)
 
     return jsonify({'solution': solution})

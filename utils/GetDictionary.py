@@ -8,8 +8,8 @@ from utils.UndirectedGraph import UndirectedGraph
 
 def getDict(isNYT):
     outDict = {}
+    dataDict = getNYTData()
     if isNYT:
-        dataDict = getNYTData()
         trie = trieClass.Trie()
         theirSol = dataDict['ourSolution']
         for element in dataDict['dictionary']:
@@ -18,7 +18,10 @@ def getDict(isNYT):
         outDict["solution"] = theirSol
         outDict["isNYT"] = True
     else:
-        outDict["trie"] = trieClass.load_trie_mmap("betterwords.pickle")
+        trie = trieClass.load_trie_mmap("betterwords.pickle")
+        for element in dataDict['dictionary']:
+            trie.insert(element.lower())
+        outDict["trie"] = trie
         outDict["isNYT"] = False
         outDict["solution"] = ""
     return outDict

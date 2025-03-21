@@ -52,10 +52,10 @@ def run_process():
     use_nyt = data.get('useNYT', False)  # Default to False if not provided
     
     dict_dict = GetDictionary.getDict(use_nyt)
-    print("-----------")
-    print("printing dict_dict")
-    print(dict_dict)
-    print("---------")
+    # print("-----------")
+    # print("printing dict_dict")
+    # print(dict_dict)
+    # print("---------")
     active_trie = dict_dict["trie"]
     isNYT = dict_dict["isNYT"]
     recommendedSol = dict_dict["solution"]
@@ -88,9 +88,9 @@ def validate():
         client_data.get('bottom2', ''),
         client_data.get('bottom3', '')
     ]
-    print(client_values)
-    print('---------------')
-    print(expected_values)
+    # print(client_values)
+    # print('---------------')
+    # print(expected_values)
     all_match = client_values == expected_values
     global usingNYT
     if all_match:
@@ -124,9 +124,9 @@ def solve():
     bottom_letters = [data['bottom1'], data['bottom2'], data['bottom3']]
     
     letters = [top_letters, left_letters, right_letters, bottom_letters]
-    print(letters)
-    print(recommendedSol)
-    print(isNYT)
+    # print(letters)
+    # print(recommendedSol)
+    # print(isNYT)
     solution = Solver.getSolutions(letters, active_trie, recommendedSol)
 
     return jsonify({'solution': solution})

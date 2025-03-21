@@ -10,9 +10,6 @@ class TrieNode:
         self.is_end_of_word = False  # Marks the end of a valid word
 
     def getChildren(self):
-        for element in self.children:
-            print(element)
-        print('--------')
         return self.children
     
     def getValid(self):

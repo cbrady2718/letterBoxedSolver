@@ -54,7 +54,9 @@ def load_dictionary_into_trie(file_path, trie):
         for word in file:
             trie.insert(word.strip().lower())  # Insert words in lowercase
 
-
+def load_python_list_into_trie(py_list, trie):
+    for word in py_list:
+        trie.insert(word.strip().lower())
 
 def trie_to_dict(node):
     """Recursively convert TrieNode to a dictionary"""

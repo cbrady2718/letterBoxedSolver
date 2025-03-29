@@ -27,7 +27,7 @@ jobs:
 
       - name: Commit and Push Changes
         run: |
-          git config --global user.name "cbrady2718"
+          git config --global user.name "github-actions"
           git config --global user.email "cbrady2718@gmail.com"
           git add nyt_data.json
           git diff --quiet && git diff --staged --quiet || git commit -m "Update NYT data"

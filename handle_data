@@ -1,0 +1,87 @@
+import os
+import json
+import pickle
+import git
+from datetime import datetime
+import utils.mantainDict as mantainDict
+
+class DataManager:
+    def __init__(self, repo_path, data_dir='data'):
+        """
+        Initialize DataManager with GitHub repository path
+        
+        :param repo_path: Path to local git repository
+        :param data_dir: Subdirectory for data files
+        """
+        self.repo_path = repo_path
+        self.data_dir = os.path.join(repo_path, data_dir)
+        os.makedirs(self.data_dir, exist_ok=True)
+        
+        # Initialize git repo
+        self.repo = git.Repo(repo_path)
+    
+    def save_data(self, pick, json):
+        """
+        Save data to both pickle and JSON files
+        
+        :param data: Data to save
+        :param filename: Base filename (without extension)
+        """
+        # Save pickle
+        pickle_path = os.path.join(self.data_dir, 'nyt_dict.pickle')
+        with open(pickle_path, 'wb') as f:
+            pickle.dump(pick, f)
+        
+        # Save JSON
+        json_path = os.path.join(self.data_dir, 'past_solutions.json')
+        with open(json_path, 'w') as f:
+            json.dump(json, f, indent=2)
+    
+    def commit_and_push(self, date, commit_message=None):
+        """
+        Commit and push changes to GitHub
+        
+        :param commit_message: Custom commit message
+        """
+        # Stage changes
+        self.repo.git.add(self.data_dir)
+        
+        # Create commit message if not provided
+        if commit_message is None:
+            commit_message = f"Update data: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        try:
+            # Commit changes
+            self.repo.index.commit(f"data update {date}")
+            
+            # Push to remote
+            origin = self.repo.remote(name='origin')
+            origin.push()
+            print("Data successfully pushed to GitHub")
+        except Exception as e:
+            print(f"Error pushing to GitHub: {e}")
+    
+    def load_data(self, filename='data'):
+        """
+        Load data from pickle file
+        
+        :param filename: Base filename (without extension)
+        :return: Loaded data
+        """
+        pickle_path = os.path.join(self.data_dir, f'{filename}.pickle')
+        with open(pickle_path, 'rb') as f:
+            return pickle.load(f)
+
+# Example usage in a Flask route
+def update_daily_data():
+    # Your data update logic here
+    new_data = fetch_and_process_data()
+    
+    # Initialize DataManager (assumes you're in the repository directory)
+    data_manager = DataManager(repo_path='.')
+    
+    # Save and commit data
+    data_manager.save_data(new_data)
+    data_manager.commit_and_push()
+
+mantainDict.updateHistory()

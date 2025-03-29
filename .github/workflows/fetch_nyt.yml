@@ -23,7 +23,7 @@ jobs:
           pip install requests beautifulsoup4
 
       - name: Fetch NYT Data and Append to JSON
-        run: python utils/fetch_day.py
+        run: python fetch_day.py
 
       - name: Commit and Push Changes
         run: |

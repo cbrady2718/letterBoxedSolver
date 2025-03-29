@@ -112,6 +112,30 @@ def generate():
     final =  [list(element) for element in nytDat['sides']]
     return jsonify({'letters': final})
 
+@app.route('/get_dates')
+def get_dates():
+    with open('nyt_data.json', 'r') as f:
+        dates_data = json.load(f)
+        bob = dates_data.keys()
+    return jsonify(dates_data)
+
+def processDate(date):
+    with open('nyt_data.json', 'r') as f:
+        dates_data = json.load(f)
+        print(dates_data[date])
+        return
+
+@app.route('/process_date', methods=['POST'])
+def process_date():
+    data = request.get_json()
+    selected_date = data.get('date')
+    
+    # Your Python function logic here
+    result = your_processing_function(selected_date)
+    
+    # Return a response if needed
+    return jsonify({'status': 'success', 'message': f'Processed date: {selected_date}'})
+
 @app.route('/solve', methods=['POST'])
 def solve():
     global recommendedSol

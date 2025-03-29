@@ -129,9 +129,8 @@ def processDate(date):
 def process_date():
     data = request.get_json()
     selected_date = data.get('date')
-    
-    # Your Python function logic here
-    result = your_processing_function(selected_date)
+
+    #To do
     
     # Return a response if needed
     return jsonify({'status': 'success', 'message': f'Processed date: {selected_date}'})

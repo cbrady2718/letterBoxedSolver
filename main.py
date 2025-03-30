@@ -18,11 +18,26 @@ import utils.Solver as Solver
 '''print('tree loading')
 new_trie = trieClass.load_trie_json('betterWords.json')
 print('tree loaded')''' 
+global small_trie
+global large_trie
+global using_small
 
 global active_trie
 global isNYT
 global recommendedSol
+global current_dictionary
+current_dictionary = {}
+current_date = ''
 metaDat = GetDictionary.getDict(True)
+#automatically set small trie to todays trie
+small_trie = Trie()
+#automatically load large_trie
+large_trie = GetDictionary.getDict(False)['trie']
+#defaul will assume today's trie
+using_small = False
+
+
+## Old working version
 active_trie = metaDat["trie"]
 isNYT = metaDat["isNYT"]
 recommendedSol = ""
@@ -42,32 +57,42 @@ app = Flask(__name__,static_folder='.')
 
 @app.route('/load_dictionary', methods=['POST'])
 def run_process():
-    print('entered py')
-    global active_trie
-    global isNYT
-    global recommendedSol
+    return jsonify("Don't need this")
+    # print('entered py')
+    # global active_trie
+    # global isNYT
+    # global recommendedSol
     
-    # Get the boolean parameter from the request
-    data = request.get_json()
-    use_nyt = data.get('useNYT', False)  # Default to False if not provided
+    # # Get the boolean parameter from the request
+    # data = request.get_json()
+    # use_nyt = data.get('useNYT', False)  # Default to False if not provided
     
-    dict_dict = GetDictionary.getDict(use_nyt)
-    # print("-----------")
-    # print("printing dict_dict")
-    # print(dict_dict)
-    # print("---------")
-    active_trie = dict_dict["trie"]
-    isNYT = dict_dict["isNYT"]
-    recommendedSol = dict_dict["solution"]
-    return jsonify("Dictionary Loaded")
+    # dict_dict = GetDictionary.getDict(use_nyt)
+    # # print("-----------")
+    # # print("printing dict_dict")
+    # # print(dict_dict)
+    # # print("---------")
+    # active_trie = dict_dict["trie"]
+    # isNYT = dict_dict["isNYT"]
+    # recommendedSol = dict_dict["solution"]
+    # return jsonify("Dictionary Loaded")
 
 @app.route('/validate', methods=['POST'])
 def validate():
     # Get the data from the JavaScript frontend
+    global current_dictionary
+    global using_small
+
     client_data = request.json
         
+    nytDat = current_dictionary
+    if 'sides' not in nytDat:
+        using_small = False
+        return jsonify({
+            'all_match': False,
+        })
     # Generate the expected values
-    nytDat = getNYTData()
+    #nytDat = getNYTData()
     expected_values =  []
     for element in nytDat['sides']:
         for letter in element:
@@ -94,7 +119,11 @@ def validate():
     all_match = client_values == expected_values
     global usingNYT
     if all_match:
+        using_small = True
         usingNYT = True
+    else:
+        using_small = False
+        usingNYT = False
     print(jsonify({
         'all_match': all_match,
     }))
@@ -120,23 +149,38 @@ def get_dates():
     return jsonify(dates_data)
 
 def processDate(date):
+    global small_trie
+    global using_small
+    global current_dictionary
     with open('nyt_data.json', 'r') as f:
         dates_data = json.load(f)
-        print(dates_data[date])
-        return
+        final =  [list(element) for element in dates_data[date]['sides']]
+        current_dictionary = dates_data[date]
+        print(dates_data[date].keys())
+        if "dictionary" in dates_data[date]:
+            print("using new dictionary")
+            small_trie = Trie()
+            trieClass.load_python_list_into_trie(dates_data[date]["dictionary"], small_trie)
+            using_small = True
+        return final
+        #return jsonify({'letters': final})
 
 @app.route('/process_date', methods=['POST'])
 def process_date():
     data = request.get_json()
     selected_date = data.get('date')
-
-    #To do
-    
+    sides = processDate(selected_date)
+    return jsonify({'letters': sides})
     # Return a response if needed
-    return jsonify({'status': 'success', 'message': f'Processed date: {selected_date}'})
+    #return jsonify({'status': 'success', 'message': f'Processed date: {selected_date}'})
 
 @app.route('/solve', methods=['POST'])
 def solve():
+    global using_small
+    global small_trie
+    global large_trie
+    global current_dictionary
+
     global recommendedSol
     global active_trie
     global isNYT
@@ -147,10 +191,14 @@ def solve():
     bottom_letters = [data['bottom1'], data['bottom2'], data['bottom3']]
     
     letters = [top_letters, left_letters, right_letters, bottom_letters]
-    # print(letters)
-    # print(recommendedSol)
-    # print(isNYT)
-    solution = Solver.getSolutions(letters, active_trie, recommendedSol)
+    if using_small:
+        recommendedSol = current_dictionary['outSolution']
+        if "dictionary" in current_dictionary:
+            solution = Solver.getSolutions(letters, small_trie, recommendedSol)
+        else:
+            solution = Solver.getSolutions(letters, large_trie, recommendedSol)
+    else:
+        solution = Solver.getSolutions(letters, large_trie, "")
 
     return jsonify({'solution': solution})
 

@@ -274,7 +274,7 @@
     </div>
 
     <div class="button-container">
-        <button id="generateButton">Generate Letters</button>
+        <!-- <button id="generateButton">Generate Letters</button> -->
         <button id="solveButton">Solve</button>
     </div>
     <div class="switch-container">
@@ -330,11 +330,41 @@
                         data: JSON.stringify({ date: selectedDate }),
                         contentType: 'application/json',
                         success: function(response) {
-                            // Handle the response from your Python function here if needed
-                            console.log('Response from server:', response);
+                            if (response.letters) {
+                                console.log(response.letters)
+                                const lists = response.letters;
+                                
+                                const letterMap = {};
+
+                                // Fill top row
+                                $('#top1').val(lists[0][0]); letterMap[lists[0][0]] = '#top1';
+                                $('#top2').val(lists[0][1]); letterMap[lists[0][1]] = '#top2';
+                                $('#top3').val(lists[0][2]); letterMap[lists[0][2]] = '#top3';
+
+                                // Fill left side
+                                $('#left1').val(lists[1][0]); letterMap[lists[1][0]] = '#left1';
+                                $('#left2').val(lists[1][1]); letterMap[lists[1][1]] = '#left2';
+                                $('#left3').val(lists[1][2]); letterMap[lists[1][2]] = '#left3';
+
+                                // Fill right side
+                                $('#right1').val(lists[2][0]); letterMap[lists[2][0]] = '#right1';
+                                $('#right2').val(lists[2][1]); letterMap[lists[2][1]] = '#right2';
+                                $('#right3').val(lists[2][2]); letterMap[lists[2][2]] = '#right3';
+
+                                // Fill bottom row
+                                $('#bottom1').val(lists[3][0]); letterMap[lists[3][0]] = '#bottom1';
+                                $('#bottom2').val(lists[3][1]); letterMap[lists[3][1]] = '#bottom2';
+                                $('#bottom3').val(lists[3][2]); letterMap[lists[3][2]] = '#bottom3';
+
+                                // Store the map globally for later access
+                                window.letterMap = setLetterMap()
+                                
+                                // Clear any existing display
+                                clearLines();
+                            }
                         },
                         error: function(error) {
-                            console.error('Error:', error);
+                            $('#solution').text('Error generating letters');
                         }
                     });
                 }
@@ -548,6 +578,18 @@
                 // Clear the word displays
                 $('#word1Text').empty();
                 $('#word2Text').empty();
+                $('#top1').css('background-color', '#ffffff');
+                $('#top2').css('background-color', '#ffffff');
+                $('#top3').css('background-color', '#ffffff');
+                $('#bottom1').css('background-color', '#ffffff');
+                $('#bottom2').css('background-color', '#ffffff');
+                $('#bottom3').css('background-color', '#ffffff');
+                $('#left1').css('background-color', '#ffffff');
+                $('#left2').css('background-color', '#ffffff');
+                $('#left3').css('background-color', '#ffffff');
+                $('#right1').css('background-color', '#ffffff');
+                $('#right2').css('background-color', '#ffffff');
+                $('#right3').css('background-color', '#ffffff');
             }
             
             function drawWords(word1, word2) {
@@ -724,14 +766,6 @@
 
                 const loadingMessage = document.getElementById('loading-message');
                 const resultDiv = document.getElementById('result');
-
-                if(!result){
-                    loadingMessage.style.display = 'block';
-
-                    await loadDictionary(false);
-
-                    loadingMessage.style.display = 'none';
-                }
 
                 const solveResponse = await fetch('/solve', {
                     method: 'POST',

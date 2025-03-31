@@ -167,12 +167,54 @@ def processDate(date):
 
 @app.route('/process_date', methods=['POST'])
 def process_date():
-    data = request.get_json()
+    print('hi')
+    print(request)
+    data = request.json
+    print(data)
     selected_date = data.get('date')
     sides = processDate(selected_date)
     return jsonify({'letters': sides})
     # Return a response if needed
     #return jsonify({'status': 'success', 'message': f'Processed date: {selected_date}'})
+
+   # post("/validate_word", JSON.stringify({ word: word })
+
+@app.route('/validate_word', methods=['POST'])  
+def checkWord():
+    print("IM CHECKING THE FUCKING WORD")
+    print(request.is_json)
+    print(request)
+    print(request.get_data())
+    fred = request.get_data()
+    print("__________")
+    print(fred)
+    print(fred)
+    print("_____________")
+    print(request.get_json())
+    print(request.get_json().get("word"))
+    word = request.get_json().get("word")
+    word = word.lower()
+    if using_small:
+        test = small_trie.search(word)
+    else:
+        test = large_trie.search(word)
+
+    return jsonify({
+        'valid': test
+    })
+    """
+    data = request.get_json()
+    word = data.get("word","")
+    print(word)
+    print(data)
+    if using_small:
+        test = small_trie.search(data.get('word'))
+    else:
+         test = large_trie.search(data.get('word'))
+    return jsonify({
+        'valid': test,
+    })"""
+
 
 @app.route('/solve', methods=['POST'])
 def solve():
@@ -204,6 +246,6 @@ def solve():
 
 
 if __name__ == "__main__":
-    #app.run()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run()
+    #port = int(os.environ.get("PORT", 5000))
+    #app.run(host="0.0.0.0", port=port)

@@ -175,7 +175,6 @@ def solve():
     global current_dictionary
 
     global recommendedSol
-    global active_trie
     data = request.get_json()
     top_letters = [data['top1'], data['top2'], data['top3']]
     left_letters = [data['left1'], data['left2'], data['left3']]

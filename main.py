@@ -23,9 +23,9 @@ global large_trie
 global using_small
 
 global active_trie
-global isNYT
 global recommendedSol
 global current_dictionary
+recommendedSol = ""
 current_dictionary = {}
 current_date = ''
 metaDat = GetDictionary.getDict(True)
@@ -36,13 +36,6 @@ large_trie = GetDictionary.getDict(False)['trie']
 #defaul will assume today's trie
 using_small = False
 
-
-## Old working version
-active_trie = metaDat["trie"]
-isNYT = metaDat["isNYT"]
-recommendedSol = ""
-if isNYT:
-    recommendedSol = metaDat["solution"]
 
 
 global g
@@ -58,24 +51,6 @@ app = Flask(__name__,static_folder='.')
 @app.route('/load_dictionary', methods=['POST'])
 def run_process():
     return jsonify("Don't need this")
-    # print('entered py')
-    # global active_trie
-    # global isNYT
-    # global recommendedSol
-    
-    # # Get the boolean parameter from the request
-    # data = request.get_json()
-    # use_nyt = data.get('useNYT', False)  # Default to False if not provided
-    
-    # dict_dict = GetDictionary.getDict(use_nyt)
-    # # print("-----------")
-    # # print("printing dict_dict")
-    # # print(dict_dict)
-    # # print("---------")
-    # active_trie = dict_dict["trie"]
-    # isNYT = dict_dict["isNYT"]
-    # recommendedSol = dict_dict["solution"]
-    # return jsonify("Dictionary Loaded")
 
 @app.route('/validate', methods=['POST'])
 def validate():
@@ -113,17 +88,12 @@ def validate():
         client_data.get('bottom2', ''),
         client_data.get('bottom3', '')
     ]
-    # print(client_values)
-    # print('---------------')
-    # print(expected_values)
+
     all_match = client_values == expected_values
-    global usingNYT
-    if all_match:
+    if all_match and 'dictionary' in nytDat:
         using_small = True
-        usingNYT = True
     else:
         using_small = False
-        usingNYT = False
     print(jsonify({
         'all_match': all_match,
     }))
@@ -162,8 +132,10 @@ def processDate(date):
             small_trie = Trie()
             trieClass.load_python_list_into_trie(dates_data[date]["dictionary"], small_trie)
             using_small = True
+        else:
+            print("not using small")
+            using_small = False
         return final
-        #return jsonify({'letters': final})
 
 @app.route('/process_date', methods=['POST'])
 def process_date():
@@ -174,26 +146,14 @@ def process_date():
     selected_date = data.get('date')
     sides = processDate(selected_date)
     return jsonify({'letters': sides})
-    # Return a response if needed
-    #return jsonify({'status': 'success', 'message': f'Processed date: {selected_date}'})
 
-   # post("/validate_word", JSON.stringify({ word: word })
 
 @app.route('/validate_word', methods=['POST'])  
 def checkWord():
-    print("IM CHECKING THE FUCKING WORD")
-    print(request.is_json)
-    print(request)
-    print(request.get_data())
-    fred = request.get_data()
-    print("__________")
-    print(fred)
-    print(fred)
-    print("_____________")
-    print(request.get_json())
-    print(request.get_json().get("word"))
     word = request.get_json().get("word")
     word = word.lower()
+    print(word)
+    print(using_small)
     if using_small:
         test = small_trie.search(word)
     else:
@@ -202,18 +162,6 @@ def checkWord():
     return jsonify({
         'valid': test
     })
-    """
-    data = request.get_json()
-    word = data.get("word","")
-    print(word)
-    print(data)
-    if using_small:
-        test = small_trie.search(data.get('word'))
-    else:
-         test = large_trie.search(data.get('word'))
-    return jsonify({
-        'valid': test,
-    })"""
 
 
 @app.route('/solve', methods=['POST'])
@@ -225,7 +173,6 @@ def solve():
 
     global recommendedSol
     global active_trie
-    global isNYT
     data = request.get_json()
     top_letters = [data['top1'], data['top2'], data['top3']]
     left_letters = [data['left1'], data['left2'], data['left3']]

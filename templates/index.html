@@ -385,6 +385,10 @@
                                 
                                 // Clear any existing display
                                 clearLines();
+                                selectedLetters = [];
+                                words = [];
+                                lastSide = null;
+                                updateSelectedLettersDisplay();
                             }
                         },
                         error: function(error) {
@@ -602,9 +606,21 @@
                 // Clear the word displays
                 $('#word1Text').empty();
                 $('#word2Text').empty();
+                $('#top1').css('background', '');
+                $('#top2').css('background', '');
+                $('#top3').css('background', '');
+                $('#bottom1').css('background', '');
+                $('#bottom2').css('background', '');
+                $('#bottom3').css('background', '');
+                $('#left1').css('background', '');
+                $('#left2').css('background', '');
+                $('#left3').css('background', '');
+                $('#right3').css('background', '');
+                $('#right1').css('background', '');
+                $('#right2').css('background', '');
             }
             
-            function drawWords(word1, word2) {
+            async function drawWords(word1, word2) {
                 // First, clear any existing display
                 clearLines();
                 
@@ -712,7 +728,7 @@
 
 
             $('#solveButton').click(async function() {
-                clearLines();
+                await clearLines();
                 const data = {
                     top1: $('#top1').val().toUpperCase(),
                     top2: $('#top2').val().toUpperCase(),
@@ -821,7 +837,7 @@
                         lastSide = side;
                     });
                     
-                    $("#clearButton").click(function () {
+                    $("#clearButton").click(async function () {
                         selectedLetters = [];
                         words = [];
                         lastSide = null;
@@ -840,10 +856,19 @@
                             });
                         wordVal = await response.json();
                         if(wordVal.valid){
-                            words.push(selectedLetters.join(""))
-                            selectedLetters = [selectedLetters[selectedLetters.length - 1]];
-                            lastSide = null;
-                            updateSelectedLettersDisplay();
+                            const numberLetters = new Set(words.join(""));
+                            // Add selectedLetters to the set
+                            selectedLetters.forEach(letter => numberLetters.add(letter));
+                            if(numberLetters.size == 12){
+                                updateSelectedLettersDisplay();
+                                alert('You win!')
+                            }
+                            else{
+                                words.push(selectedLetters.join(""))
+                                selectedLetters = [selectedLetters[selectedLetters.length - 1]];
+                                lastSide = null;
+                                updateSelectedLettersDisplay();
+                            }
                         }
                         else{
                             alert("That word's not in our dictionary!");

@@ -274,7 +274,7 @@
     </div>
 
     <div class="button-container">
-        <!-- <button id="generateButton">Generate Letters</button> -->
+        <button id="playButton">Play</button>
         <button id="solveButton">Solve</button>
     </div>
     <div class="switch-container">
@@ -307,6 +307,30 @@
 
     <script>
         $(document).ready(function() {
+            let selectedLetters = [];
+            let words = [];
+            let lastSide = null;
+            let gameStarted = false;
+            const buttonContainer = $(".button-container");
+
+            $("input[type='text']").each(function() {
+                $(this).on("click", function() {
+                    console.log($(this).val());
+                    if (!gameStarted) return; // Ignore clicks before "Play" is pressed
+
+                    let sideMatch = this.id.match(/top|bottom|left|right/);
+                    if (!sideMatch) return;
+
+                    let side = sideMatch[0];
+
+                    // First click allowed anywhere, subsequent clicks must be from a different side
+                    if (selectedLetters.length === 0 || side !== lastSide) {
+                        selectedLetters.push(this.value);
+                        lastSide = side;
+                        updateSelectedLettersDisplay();
+                    }
+                });
+            });
             // Fetch the JSON file and populate the dropdown
             $.getJSON('/get_dates', function(data) {
                 const $select = $('#dateSelect');
@@ -322,6 +346,8 @@
             // Handle date selection
             $('#dateSelect').on('change', function() {
                 const selectedDate = $(this).val();
+                $("#enterButton, #backButton, #clearButton").hide();
+                gameStarted = false;
                 if (selectedDate) {
                     // Make an AJAX call to your Flask endpoint
                     $.ajax({
@@ -361,6 +387,10 @@
                                 
                                 // Clear any existing display
                                 clearLines();
+                                selectedLetters = [];
+                                words = [];
+                                lastSide = null;
+                                updateSelectedLettersDisplay();
                             }
                         },
                         error: function(error) {
@@ -578,21 +608,21 @@
                 // Clear the word displays
                 $('#word1Text').empty();
                 $('#word2Text').empty();
-                $('#top1').css('background-color', '#ffffff');
-                $('#top2').css('background-color', '#ffffff');
-                $('#top3').css('background-color', '#ffffff');
-                $('#bottom1').css('background-color', '#ffffff');
-                $('#bottom2').css('background-color', '#ffffff');
-                $('#bottom3').css('background-color', '#ffffff');
-                $('#left1').css('background-color', '#ffffff');
-                $('#left2').css('background-color', '#ffffff');
-                $('#left3').css('background-color', '#ffffff');
-                $('#right1').css('background-color', '#ffffff');
-                $('#right2').css('background-color', '#ffffff');
-                $('#right3').css('background-color', '#ffffff');
+                $('#top1').css('background', '');
+                $('#top2').css('background', '');
+                $('#top3').css('background', '');
+                $('#bottom1').css('background', '');
+                $('#bottom2').css('background', '');
+                $('#bottom3').css('background', '');
+                $('#left1').css('background', '');
+                $('#left2').css('background', '');
+                $('#left3').css('background', '');
+                $('#right3').css('background', '');
+                $('#right1').css('background', '');
+                $('#right2').css('background', '');
             }
             
-            function drawWords(word1, word2) {
+            async function drawWords(word1, word2) {
                 // First, clear any existing display
                 clearLines();
                 
@@ -697,55 +727,10 @@
                 }
             }
 
-            $('#generateButton').click(async function() {
-                $.ajax({
-                    url: '/generate',
-                    type: 'GET',
-                    success: function(response) {
-                        // Expecting response.letters to be a list of lists
-                        if (response.letters) {
-                            console.log(response.letters)
-                            const lists = response.letters;
-                            
-                            const letterMap = {};
-
-                            // Fill top row
-                            $('#top1').val(lists[0][0]); letterMap[lists[0][0]] = '#top1';
-                            $('#top2').val(lists[0][1]); letterMap[lists[0][1]] = '#top2';
-                            $('#top3').val(lists[0][2]); letterMap[lists[0][2]] = '#top3';
-
-                            // Fill left side
-                            $('#left1').val(lists[1][0]); letterMap[lists[1][0]] = '#left1';
-                            $('#left2').val(lists[1][1]); letterMap[lists[1][1]] = '#left2';
-                            $('#left3').val(lists[1][2]); letterMap[lists[1][2]] = '#left3';
-
-                            // Fill right side
-                            $('#right1').val(lists[2][0]); letterMap[lists[2][0]] = '#right1';
-                            $('#right2').val(lists[2][1]); letterMap[lists[2][1]] = '#right2';
-                            $('#right3').val(lists[2][2]); letterMap[lists[2][2]] = '#right3';
-
-                            // Fill bottom row
-                            $('#bottom1').val(lists[3][0]); letterMap[lists[3][0]] = '#bottom1';
-                            $('#bottom2').val(lists[3][1]); letterMap[lists[3][1]] = '#bottom2';
-                            $('#bottom3').val(lists[3][2]); letterMap[lists[3][2]] = '#bottom3';
-
-                            // Store the map globally for later access
-                            window.letterMap = setLetterMap()
-                            
-                            // Clear any existing display
-                            clearLines();
-                        }
-                    },
-                    error: function(error) {
-                        $('#solution').text('Error generating letters');
-                    }
-                });
-            });
-
 
 
             $('#solveButton').click(async function() {
-                clearLines();
+                await clearLines();
                 const data = {
                     top1: $('#top1').val().toUpperCase(),
                     top2: $('#top2').val().toUpperCase(),
@@ -813,16 +798,115 @@
                 console.log("Switch toggled, checked:", this.checked); // Debug output
                 if (this.checked) {
                     switchLabel.textContent = "Today's NYT Dictionary";
-                    console.log("Hi - Loading NYT Dictionary");
-                    await loadDictionary(true);
-                    console.log("loaded")
                 } else {
                     switchLabel.textContent = "Generic Larger Dictionary";
-                    console.log("Bye - Loading Generic Dictionary");
-                    await loadDictionary(false);
-                    console.log('loaded')
                 }
             });
+            $("#playButton").click(async function () {
+                if (gameStarted) return; // Prevent multiple setups
+                gameStarted = true;
+                await validateValues();
+                // Freeze input boxes (make them read-only but still clickable)
+                $("input[type='text']").attr("readonly", true);
+
+                // Create game buttons if they don’t already exist
+                if (!$("#enterButton").length) {
+                    ["Enter", "Back", "Clear"].forEach(buttonText => {
+                        let button = $("<button>").text(buttonText).attr("id", buttonText.toLowerCase() + "Button");
+                        buttonContainer.append(button);
+                    });
+
+                    // Create display area for selected letters
+                    buttonContainer.append("<div id='selectedLetters'></div>");
+
+                    // Attach event listeners to new buttons
+                    $("#backButton").click(function () {
+                        if (selectedLetters.length > 0) {
+                            selectedLetters.pop();
+                            updateSelectedLettersDisplay();
+                        }
+                        console.log(words)
+                        if(selectedLetters.length == 0){
+                            let word = words.pop()
+                            for (let i = 0; i < word.length; i++) {
+                                selectedLetters.push(word[i])
+                            }
+                            updateSelectedLettersDisplay();
+                        }
+                        let resetSide = getSelectorByLetter(selectedLetters[[selectedLetters.length - 1]])
+                        let sideMatch = resetSide.match(/top|bottom|left|right/);
+                        let side = sideMatch[0];
+                        lastSide = side;
+                    });
+                    
+                    $("#clearButton").click(async function () {
+                        selectedLetters = [];
+                        words = [];
+                        lastSide = null;
+                        updateSelectedLettersDisplay();
+                        clearLines();
+                    });
+
+                    $("#enterButton").click(async function () {
+                        let word = selectedLetters.join("");
+                        const response = await fetch('/validate_word', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({"word" : word})
+                            });
+                        wordVal = await response.json();
+                        if(wordVal.valid){
+                            const numberLetters = new Set(words.join(""));
+                            // Add selectedLetters to the set
+                            selectedLetters.forEach(letter => numberLetters.add(letter));
+                            if(numberLetters.size == 12){
+                                updateSelectedLettersDisplay();
+                                alert('You win!')
+                            }
+                            else{
+                                words.push(selectedLetters.join(""))
+                                selectedLetters = [selectedLetters[selectedLetters.length - 1]];
+                                lastSide = null;
+                                updateSelectedLettersDisplay();
+                            }
+                        }
+                        else{
+                            alert("That word's not in our dictionary!");
+                        }
+                    });
+                }
+                $("#enterButton, #backButton, #clearButton").show();
+            });
+            function updateSelectedLettersDisplay() {
+                clearLines();
+                if(words.length > 0){
+                    let word1 = words[0]
+                    words.forEach(word1 => {
+                        for (let j = 1; j < word1.length; j++) {
+                            let first = getSelectorByLetter(word1[j-1].toUpperCase());
+                            let second = getSelectorByLetter(word1[j].toUpperCase());
+                            let isFirst = j == 1;
+                            drawLine($(first), $(second), '#4CAF50', 0, isFirst, j); // Green for word one
+                        }
+                    })
+                }
+                let forPres = ""
+                if(words.length > 0){
+                    forPres = words.join(" ")+" "
+                }
+                forPres = forPres+selectedLetters.join("")
+                $("#selectedLetters").text(forPres)
+                // $("#selectedLetters").text(selectedLetters.join(""));
+                let word1 = selectedLetters.join("")
+                for (let j = 1; j < word1.length; j++) {
+                    let first = getSelectorByLetter(word1[j-1].toUpperCase());
+                    let second = getSelectorByLetter(word1[j].toUpperCase());
+                    let isFirst = j == 1;
+                    drawLine($(first), $(second), '#ADD8E6', 0, isFirst, j); // Green for word one
+                }
+            }
        });
     </script>
 </body>

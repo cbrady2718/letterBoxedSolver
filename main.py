@@ -121,6 +121,7 @@ def get_dates():
 def processDate(date):
     global small_trie
     global using_small
+    global large_trie
     global current_dictionary
     with open('nyt_data.json', 'r') as f:
         dates_data = json.load(f)
@@ -134,6 +135,9 @@ def processDate(date):
             using_small = True
         else:
             print("not using small")
+            if "outSolution" in dates_data[date]:
+                for element in dates_data[date]["outSolution"]:
+                    large_trie.insert(element)
             using_small = False
         return final
 

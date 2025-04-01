@@ -22,7 +22,6 @@ global small_trie
 global large_trie
 global using_small
 
-global active_trie
 global recommendedSol
 global current_dictionary
 recommendedSol = ""

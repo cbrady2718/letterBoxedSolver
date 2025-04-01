@@ -346,6 +346,8 @@
             // Handle date selection
             $('#dateSelect').on('change', function() {
                 const selectedDate = $(this).val();
+                $("#enterButton, #backButton, #clearButton").hide();
+                gameStarted = false;
                 if (selectedDate) {
                     // Make an AJAX call to your Flask endpoint
                     $.ajax({
@@ -875,6 +877,7 @@
                         }
                     });
                 }
+                $("#enterButton, #backButton, #clearButton").show();
             });
             function updateSelectedLettersDisplay() {
                 clearLines();

@@ -348,6 +348,7 @@
                 const selectedDate = $(this).val();
                 $("#enterButton, #backButton, #clearButton").hide();
                 gameStarted = false;
+                $('#solution').html("");
                 if (selectedDate) {
                     // Make an AJAX call to your Flask endpoint
                     $.ajax({

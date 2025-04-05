@@ -47,6 +47,18 @@ class Trie:
                 return False
             node = node.children[char]
         return True
+    def get_children(self,prefix):
+        out = []
+        node = self.root
+        for char in prefix:
+            print(char)
+            if char not in node.children:
+                return out
+            node = node.children[char]
+        print(node.children)
+        for element in node.children:
+            out.append(element)
+        return out
 
 def load_dictionary_into_trie(file_path, trie):
     """Loads all words from a dictionary file into the Trie"""

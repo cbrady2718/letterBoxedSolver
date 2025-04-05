@@ -185,21 +185,18 @@ def hint():
     bottom_letters = [data['bottom1'], data['bottom2'], data['bottom3']]
     
     letters = [top_letters, left_letters, right_letters, bottom_letters]
+    prefix = data['cur'].lower()
+    outHint = []
     if using_small:
         recommendedSol = current_dictionary['outSolution']
         if "dictionary" in current_dictionary:
-            solution = Solver.getSolutions(letters, small_trie, recommendedSol)
+            outHint = small_trie.get_children(prefix)
         else:
-            solution = Solver.getSolutions(letters, large_trie, recommendedSol)
+            outHint = large_trie.get_children(prefix)
     else:
-        solution = Solver.getSolutions(letters, large_trie, "")
-    hint_engine = WordPuzzleHintEngine.WordPuzzleHintEngine(solution)
-    if 'words' in data:
-        hint = hint_engine.get_hint([data['words'],data['cur']])
-    else:
-        hint =  hint_engine.get_hint([data['cur']])
-
-    return jsonify({'hint': hint})
+        outHint = large_trie.get_children(prefix)
+    print(outHint)
+    return jsonify({'hint': outHint})
 
 @app.route('/solve', methods=['POST'])
 def solve():

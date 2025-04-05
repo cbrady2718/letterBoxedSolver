@@ -450,7 +450,12 @@
                     $(element).css('background-color', newColor);
                 }
             }
-
+            function showHint(box){
+                $(box).css({
+                    'box-shadow': '0 0 5px 2px red',
+                    'outline': 'none' // optional to remove default outline
+                });
+            }
             function drawLine(start, end, color = '#4CAF50', delay = 0, changeStartBackground = false, currentPosition) {
                 console.log('in draw func')
                 console.log(start)
@@ -760,6 +765,9 @@
                 });
                     
                 const response = await solveResponse.json();
+                if(response.length == 0){
+                    alert("No available letters")
+                }
                 console.log(response)
                 alert(response.hint)                    
             }) 

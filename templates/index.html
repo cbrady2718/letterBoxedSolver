@@ -276,6 +276,7 @@
     <div class="button-container">
         <button id="playButton">Play</button>
         <button id="solveButton">Solve</button>
+        <button id="hintButton">Hint</button>
     </div>
     <div class="switch-container">
         <label class="switch">
@@ -728,7 +729,40 @@
                     return false; // Default return value in case of error
                 }
             }
+            $('#hintButton').click(async function() {
+                const data = {
+                    top1: $('#top1').val().toUpperCase(),
+                    top2: $('#top2').val().toUpperCase(),
+                    top3: $('#top3').val().toUpperCase(),
+                    left1: $('#left1').val().toUpperCase(),
+                    left2: $('#left2').val().toUpperCase(),
+                    left3: $('#left3').val().toUpperCase(),
+                    right1: $('#right1').val().toUpperCase(),
+                    right2: $('#right2').val().toUpperCase(),
+                    right3: $('#right3').val().toUpperCase(),
+                    bottom1: $('#bottom1').val().toUpperCase(),
+                    bottom2: $('#bottom2').val().toUpperCase(),
+                    bottom3: $('#bottom3').val().toUpperCase(),
+                    words: words[0],
+                    cur: selectedLetters.join("")
+                };
+                const result = await validateValues();
 
+                const loadingMessage = document.getElementById('loading-message');
+                const resultDiv = document.getElementById('result');
+                console.log(JSON.stringify(data))
+                const solveResponse = await fetch('/hint', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                    
+                const response = await solveResponse.json();
+                console.log(response)
+                alert(response.hint)                    
+            }) 
 
 
             $('#solveButton').click(async function() {

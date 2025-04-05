@@ -319,7 +319,7 @@
                 $(this).on("click", function() {
                     console.log($(this).val());
                     if (!gameStarted) return; // Ignore clicks before "Play" is pressed
-
+                    removeHint()
                     let sideMatch = this.id.match(/top|bottom|left|right/);
                     if (!sideMatch) return;
 
@@ -327,6 +327,9 @@
 
                     // First click allowed anywhere, subsequent clicks must be from a different side
                     if (selectedLetters.length === 0 || side !== lastSide) {
+                        if(hintsOn){
+                            
+                        }
                         selectedLetters.push(this.value);
                         lastSide = side;
                         updateSelectedLettersDisplay();
@@ -453,9 +456,23 @@
             function showHint(box){
                 $(box).css({
                     'box-shadow': '0 0 5px 2px red',
-                    'outline': 'none' // optional to remove default outline
                 });
             }
+            function removeHint(){
+                $('#top1').css('box-shadow', 'none');
+                $('#top2').css('box-shadow', 'none');
+                $('#top3').css('box-shadow', 'none');
+                $('#bottom1').css('box-shadow', 'none');
+                $('#bottom2').css('box-shadow', 'none');
+                $('#bottom3').css('box-shadow', 'none');
+                $('#left1').css('box-shadow', 'none');
+                $('#left2').css('box-shadow', 'none');
+                $('#left3').css('box-shadow', 'none');
+                $('#right3').css('box-shadow', 'none');
+                $('#right1').css('box-shadow', 'none');
+                $('#right2').css('box-shadow', 'none');
+            }
+
             function drawLine(start, end, color = '#4CAF50', delay = 0, changeStartBackground = false, currentPosition) {
                 console.log('in draw func')
                 console.log(start)
@@ -735,6 +752,7 @@
                 }
             }
             $('#hintButton').click(async function() {
+                removeHint()
                 const data = {
                     top1: $('#top1').val().toUpperCase(),
                     top2: $('#top2').val().toUpperCase(),
@@ -765,15 +783,16 @@
                 });
                     
                 const response = await solveResponse.json();
-                if(response.length == 0){
-                    alert("No available letters")
+                if(response.hint.length == 0){
+                    alert("Can't find any valid next letters!")
                 }
                 console.log(response)
-                alert(response.hint)                    
+                response.hint.forEach(letter =>  showHint(getSelectorByLetter(letter.toUpperCase())))
             }) 
 
 
             $('#solveButton').click(async function() {
+                removeHint()
                 await clearLines();
                 const data = {
                     top1: $('#top1').val().toUpperCase(),
@@ -865,6 +884,7 @@
 
                     // Attach event listeners to new buttons
                     $("#backButton").click(function () {
+                        removeHint()
                         if (selectedLetters.length > 0) {
                             selectedLetters.pop();
                             updateSelectedLettersDisplay();
@@ -884,6 +904,7 @@
                     });
                     
                     $("#clearButton").click(async function () {
+                        removeHint()
                         selectedLetters = [];
                         words = [];
                         lastSide = null;
@@ -892,6 +913,7 @@
                     });
 
                     $("#enterButton").click(async function () {
+                        removeHint()
                         let word = selectedLetters.join("");
                         const response = await fetch('/validate_word', {
                             method: 'POST',

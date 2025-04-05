@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import time
+import WordPuzzleHintEngine
 
 import os
 import requests
@@ -167,6 +168,36 @@ def checkWord():
     })
 
 
+@app.route('/hint', methods=['POST'])
+def hint():
+    print("IM IN THE HINT")
+    global using_small
+    global small_trie
+    global large_trie
+    global current_dictionary
+
+    global recommendedSol
+    data = request.get_json()
+    print(data)
+    top_letters = [data['top1'], data['top2'], data['top3']]
+    left_letters = [data['left1'], data['left2'], data['left3']]
+    right_letters = [data['right1'], data['right2'], data['right3']]
+    bottom_letters = [data['bottom1'], data['bottom2'], data['bottom3']]
+    
+    letters = [top_letters, left_letters, right_letters, bottom_letters]
+    prefix = data['cur'].lower()
+    outHint = []
+    if using_small:
+        recommendedSol = current_dictionary['outSolution']
+        if "dictionary" in current_dictionary:
+            outHint = small_trie.get_children(prefix)
+        else:
+            outHint = large_trie.get_children(prefix)
+    else:
+        outHint = large_trie.get_children(prefix)
+    print(outHint)
+    return jsonify({'hint': outHint})
+
 @app.route('/solve', methods=['POST'])
 def solve():
     global using_small
@@ -190,11 +221,10 @@ def solve():
             solution = Solver.getSolutions(letters, large_trie, recommendedSol)
     else:
         solution = Solver.getSolutions(letters, large_trie, "")
-
     return jsonify({'solution': solution})
 
 
 if __name__ == "__main__":
-    #app.run()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run()
+    #port = int(os.environ.get("PORT", 5000))
+    #app.run(host="0.0.0.0", port=port)

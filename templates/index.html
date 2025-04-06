@@ -276,14 +276,15 @@
     <div class="button-container">
         <button id="playButton">Play</button>
         <button id="solveButton">Solve</button>
-        <button id="hintButton">Hint</button>
+       <!--<button id="hintButton">Hint</button>
+    -->
     </div>
     <div class="switch-container">
         <label class="switch">
-            <input type="checkbox" id="dictionarySwitch" checked>
+            <input type="checkbox" id="assist" checked>
             <span class="slider"></span>
         </label>
-        <span id="switchLabel">Today's NYT Dictionary</span>
+        <span id="switchLabel">Using Assist</span>
     </div>
 
     <div id="loading-message">
@@ -308,8 +309,7 @@
 
     <script>
         $(document).ready(function() {
-            document.querySelector('.switch-container').style.display = 'none';
-            let selectedLetters = [];
+             let selectedLetters = [];
             let words = [];
             let lastSide = null;
             let gameStarted = false;
@@ -320,6 +320,7 @@
                     console.log($(this).val());
                     if (!gameStarted) return; // Ignore clicks before "Play" is pressed
                     removeHint()
+
                     let sideMatch = this.id.match(/top|bottom|left|right/);
                     if (!sideMatch) return;
 
@@ -327,12 +328,12 @@
 
                     // First click allowed anywhere, subsequent clicks must be from a different side
                     if (selectedLetters.length === 0 || side !== lastSide) {
-                        if(hintsOn){
-                            
-                        }
                         selectedLetters.push(this.value);
                         lastSide = side;
                         updateSelectedLettersDisplay();
+                    }
+                    if(assist.checked){
+                            getHint()
                     }
                 });
             });
@@ -751,6 +752,37 @@
                     return false; // Default return value in case of error
                 }
             }
+            async function getHint() {
+                removeHint()
+                const data = {
+                    top1: $('#top1').val().toUpperCase(),
+                    top2: $('#top2').val().toUpperCase(),
+                    top3: $('#top3').val().toUpperCase(),
+                    left1: $('#left1').val().toUpperCase(),
+                    left2: $('#left2').val().toUpperCase(),
+                    left3: $('#left3').val().toUpperCase(),
+                    right1: $('#right1').val().toUpperCase(),
+                    right2: $('#right2').val().toUpperCase(),
+                    right3: $('#right3').val().toUpperCase(),
+                    bottom1: $('#bottom1').val().toUpperCase(),
+                    bottom2: $('#bottom2').val().toUpperCase(),
+                    bottom3: $('#bottom3').val().toUpperCase(),
+                    words: words[0],
+                    cur: selectedLetters.join("")
+                };
+                const result = await validateValues();
+
+                const solveResponse = await fetch('/hint', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                    
+                const response = await solveResponse.json();
+                response.hint.forEach(letter =>  showHint(getSelectorByLetter(letter.toUpperCase())))
+            }
             $('#hintButton').click(async function() {
                 removeHint()
                 const data = {
@@ -845,27 +877,16 @@
                 drawWords(preferred[0], preferred[1]);
                     
             }) 
-            const switchElement = document.getElementById('dictionarySwitch');
-            const switchLabel = document.getElementById('switchLabel');
-            if (!switchElement || !switchLabel) {
-                console.error("Switch element or label not found!");
-                return;
-            }
 
                 // Initial load with NYT dictionary (true)
             console.log("Initial load with NYT dictionary");
             loadDictionary(true);
 
-            // Add event listener with debugging
-            switchElement.addEventListener('change', async function(e) {
-                console.log("Switch toggled, checked:", this.checked); // Debug output
-                if (this.checked) {
-                    switchLabel.textContent = "Today's NYT Dictionary";
-                } else {
-                    switchLabel.textContent = "Generic Larger Dictionary";
-                }
-            });
             $("#playButton").click(async function () {
+                if(assist.checked){
+                    removeHint()
+                    getHint()
+                }
                 if (gameStarted) return; // Prevent multiple setups
                 gameStarted = true;
                 await validateValues();
@@ -884,23 +905,30 @@
 
                     // Attach event listeners to new buttons
                     $("#backButton").click(function () {
-                        removeHint()
                         if (selectedLetters.length > 0) {
                             selectedLetters.pop();
                             updateSelectedLettersDisplay();
                         }
                         console.log(words)
                         if(selectedLetters.length == 0){
-                            let word = words.pop()
-                            for (let i = 0; i < word.length; i++) {
-                                selectedLetters.push(word[i])
+                            if(words.length > 0){
+                                let word = words.pop()
+                                for (let i = 0; i < word.length; i++) {
+                                    selectedLetters.push(word[i])
+                                }
+                                updateSelectedLettersDisplay();
                             }
-                            updateSelectedLettersDisplay();
                         }
-                        let resetSide = getSelectorByLetter(selectedLetters[[selectedLetters.length - 1]])
-                        let sideMatch = resetSide.match(/top|bottom|left|right/);
-                        let side = sideMatch[0];
-                        lastSide = side;
+                        if(selectedLetters.length > 0){
+                            let resetSide = getSelectorByLetter(selectedLetters[[selectedLetters.length - 1]])
+                            let sideMatch = resetSide.match(/top|bottom|left|right/);
+                            let side = sideMatch[0];
+                            lastSide = side;
+                        }
+                        if(assist.checked){
+                            removeHint()
+                            getHint()
+                        }
                     });
                     
                     $("#clearButton").click(async function () {
@@ -910,6 +938,9 @@
                         lastSide = null;
                         updateSelectedLettersDisplay();
                         clearLines();
+                        if(assist.checked){
+                            getHint()
+                        }
                     });
 
                     $("#enterButton").click(async function () {
@@ -941,6 +972,10 @@
                         else{
                             alert("That word's not in our dictionary!");
                         }
+                        if(assist.checked){
+                            removeHint()
+                            getHint()
+                        }
                     });
                 }
                 $("#enterButton, #backButton, #clearButton").show();
@@ -949,6 +984,13 @@
                 clearLines();
                 if(words.length > 0){
                     let word1 = words[0]
+                    if(word1.length == 1){
+                        console.log("___________________")
+                        console.log(word1)
+                        console.log(word1[0].toUpperCase())
+                        console.log(getSelectorByLetter(word1[0].toUpperCase()))
+                        simpleBackgroundChange($(getSelectorByLetter(word1[0].toUpperCase())),'#4CAF50')
+                    }
                     words.forEach(word1 => {
                         for (let j = 1; j < word1.length; j++) {
                             let first = getSelectorByLetter(word1[j-1].toUpperCase());
@@ -966,6 +1008,13 @@
                 $("#selectedLetters").text(forPres)
                 // $("#selectedLetters").text(selectedLetters.join(""));
                 let word1 = selectedLetters.join("")
+                if(word1.length == 1){
+                    console.log("___________________")
+                    console.log(word1)
+                    console.log(word1[0].toUpperCase())
+                    console.log(getSelectorByLetter(word1[0].toUpperCase()))
+                    simpleBackgroundChange($(getSelectorByLetter(word1[0].toUpperCase())),'#ADD8E6')
+                }
                 for (let j = 1; j < word1.length; j++) {
                     let first = getSelectorByLetter(word1[j-1].toUpperCase());
                     let second = getSelectorByLetter(word1[j].toUpperCase());

@@ -170,7 +170,6 @@ def checkWord():
 
 @app.route('/hint', methods=['POST'])
 def hint():
-    print("IM IN THE HINT")
     global using_small
     global small_trie
     global large_trie

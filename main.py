@@ -15,6 +15,8 @@ from utils.trieClass import TrieNode
 from utils.trieClass import load_trie_mmap
 import utils.GetDictionary as GetDictionary
 import utils.Solver as Solver
+import time
+import utils.gridGenerator as gridGenerator
 
 '''print('tree loading')
 new_trie = trieClass.load_trie_json('betterWords.json')
@@ -222,6 +224,12 @@ def solve():
         solution = Solver.getSolutions(letters, large_trie, "")
     return jsonify({'solution': solution})
 
+@app.route('/new_grid', methods=['GET'])
+def new_grid():
+    print('entering new_grid')
+    global word_list
+    res = gridGenerator.generateGrid()
+    return jsonify({'grid': res})
 
 if __name__ == "__main__":
     app.run()

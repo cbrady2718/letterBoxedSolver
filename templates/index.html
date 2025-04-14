@@ -276,13 +276,15 @@
     <div class="button-container">
         <button id="playButton">Play</button>
         <button id="solveButton">Solve</button>
-        <button id="generateButton">Generate</button>
+        <button id="generateButton">Generate New Letters</button>
        <!--<button id="hintButton">Hint</button>
     -->
     </div>
+    <div class="button-container2">
+    </div>
     <div class="switch-container">
         <label class="switch">
-            <input type="checkbox" id="assist" checked>
+            <input type="checkbox" id="assist" unchecked>
             <span class="slider"></span>
         </label>
         <span id="switchLabel">Using Assist</span>
@@ -310,12 +312,12 @@
 
     <script>
         $(document).ready(function() {
-             let selectedLetters = [];
+            let selectedLetters = [];
             let words = [];
             let lastSide = null;
             let gameStarted = false;
-            const buttonContainer = $(".button-container");
-
+            const buttonContainer = $(".button-container2");
+            window.recSol = '';
             $("input[type='text']").each(function() {
                 $(this).on("click", function() {
                     console.log($(this).val());
@@ -410,13 +412,11 @@
             // Auto-advance to next input when a letter is entered
             $('input').on('input', function() {
                 if (this.value.length === 1) {
-                    $(this).next('input').focus();
+                    window.window.recSol = '';
+                    $(this).next('input');
                 }
             });
             function getSelectorByLetter(letter) {
-                console.log('entering map')
-                console.log(letter)
-                console.log(window.letterMap)
                 return window.letterMap ? window.letterMap[letter] : null;
             }
 
@@ -823,7 +823,6 @@
                 response.hint.forEach(letter =>  showHint(getSelectorByLetter(letter.toUpperCase())))
             }) 
             $('#generateButton').click(async function() {
-                console.log('entered')
                 await setGrid()
             })
 
@@ -844,7 +843,12 @@
                     bottom2: $('#bottom2').val().toUpperCase(),
                     bottom3: $('#bottom3').val().toUpperCase()
                 };
-
+                console.log("WE ARE HERE!!!")
+                console.log(window.recSol)
+                if(window.recSol.length > 1){
+                    console.log(window.recSol)
+                    data['recSol'] = window.recSol
+                }
 
                 const result = await validateValues();
 
@@ -1035,6 +1039,9 @@
                             if (response.grid) {
                                 console.log(response.letters)
                                 const lists = response.grid;
+                                if(response.solution){
+                                    window.recSol = response.solution
+                                }
                                 
                                 const letterMap = {};
 

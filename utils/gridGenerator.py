@@ -105,7 +105,7 @@ def generateGrid():
             print("Valid grid:", grid)
             newGrid = scramble_grid(grid)
             print("Scrambled grid: ",newGrid)
-            return newGrid
+            return newGrid, pair
         else:
             print("invalid")
 

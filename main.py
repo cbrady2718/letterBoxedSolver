@@ -145,10 +145,7 @@ def processDate(date):
 
 @app.route('/process_date', methods=['POST'])
 def process_date():
-    print('hi')
-    print(request)
     data = request.json
-    print(data)
     selected_date = data.get('date')
     sides = processDate(selected_date)
     return jsonify({'letters': sides})
@@ -158,8 +155,6 @@ def process_date():
 def checkWord():
     word = request.get_json().get("word")
     word = word.lower()
-    print(word)
-    print(using_small)
     if using_small:
         test = small_trie.search(word)
     else:
@@ -179,7 +174,6 @@ def hint():
 
     global recommendedSol
     data = request.get_json()
-    print(data)
     top_letters = [data['top1'], data['top2'], data['top3']]
     left_letters = [data['left1'], data['left2'], data['left3']]
     right_letters = [data['right1'], data['right2'], data['right3']]
@@ -207,7 +201,10 @@ def solve():
     global current_dictionary
 
     global recommendedSol
+    recom = ''
     data = request.get_json()
+    if 'recSol' in data:
+        recom = data['recSol']
     top_letters = [data['top1'], data['top2'], data['top3']]
     left_letters = [data['left1'], data['left2'], data['left3']]
     right_letters = [data['right1'], data['right2'], data['right3']]
@@ -221,13 +218,15 @@ def solve():
         else:
             solution = Solver.getSolutions(letters, large_trie, recommendedSol)
     else:
-        solution = Solver.getSolutions(letters, large_trie, "")
+        print("HERE WE ARE ")
+        print(recom)
+        solution = Solver.getSolutions(letters, large_trie, recom)
     return jsonify({'solution': solution})
 
 @app.route('/new_grid', methods=['GET'])
 def new_grid():
     res = gridGenerator.generateGrid()
-    return jsonify({'grid': res})
+    return jsonify({'grid': res[0], 'solution':res[1]})
 
 if __name__ == "__main__":
     #app.run()

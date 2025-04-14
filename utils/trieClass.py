@@ -51,11 +51,9 @@ class Trie:
         out = []
         node = self.root
         for char in prefix:
-            print(char)
             if char not in node.children:
                 return out
             node = node.children[char]
-        print(node.children)
         for element in node.children:
             out.append(element)
         return out

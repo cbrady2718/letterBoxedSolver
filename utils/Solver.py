@@ -21,7 +21,6 @@ def traverse(node: trieClass.TrieNode, prfix: str, letterGraph: GetDictionary.Un
         print(letterGraph.get_vertices())
     global wordSet
     if len(prfix) > 2 and node.getValid():
-        print(prfix)
         wordSet.append(prfix)
     if prfix == '':
         options = letterGraph.get_vertices()

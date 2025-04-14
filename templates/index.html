@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>NYT Letterboxed Puzzle Solver</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <style>
@@ -71,6 +72,10 @@
             color: white;
             border: none;
             border-radius: 4px;
+            margin-right: 10px;
+        }
+        button:last-child {
+            margin-right: 0;
         }
         button:hover {
             background-color: #45a049;
@@ -421,39 +426,20 @@
             }
 
             function simpleBackgroundChange(element, newColor) {
-                // Get the computed background color
-                const currentColor = window.getComputedStyle(element[0]).backgroundColor;
+                // Get the current background color
+                const currentColor = element.css('background-color');
                 
-                // Convert the RGB format to hex format for comparison
-                // This is needed because even if your CSS specifies "#4CAF50", 
-                // getComputedStyle will return it as "rgb(76, 175, 80)"
-                function rgbToHex(rgb) {
-                    // Extract the r, g, b components
-                    const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-                    if (!match) return "";
-                    
-                    function componentToHex(c) {
-                        const hex = parseInt(c, 10).toString(16);
-                        return hex.length === 1 ? "0" + hex : hex;
-                    }
-                    
-                    return "#" + 
-                        componentToHex(match[1]) + 
-                        componentToHex(match[2]) + 
-                        componentToHex(match[3]);
+                // Check if the current color is green (#4CAF50)
+                if (currentColor === 'rgb(76, 175, 80)' || currentColor === '#4CAF50') {
+                    // Create a gradient from green to the new color
+                    element.css('background', `linear-gradient(to right, #4CAF50 50%, ${newColor} 50%)`);
+                } else {
+                    // For any other color, just set the new background color
+                    element.css('background-color', newColor);
                 }
                 
-                const currentHex = rgbToHex(currentColor).toUpperCase();
-                const greenHex = "#4CAF50";
-                
-                // If current background is "#4CAF50", create a gradient
-                if (currentHex === greenHex) {
-                    $(element).css('background', `linear-gradient(to right, ${greenHex} 50%, ${newColor} 50%)`);
-                } 
-                // For white or any other color, just set the full background
-                else {
-                    $(element).css('background-color', newColor);
-                }
+                // Add a transition for smooth color changes
+                element.css('transition', 'background-color 0.3s ease, background 0.3s ease');
             }
             function showHint(box){
                 $(box).css({
@@ -901,7 +887,16 @@
                 // Freeze input boxes (make them read-only but still clickable)
                 $("input[type='text']").attr("readonly", true);
 
-                // Create game buttons if they don’t already exist
+                // Add event listener for assist checkbox
+                $("#assist").change(function() {
+                    if(this.checked) {
+                        getHint();
+                    } else {
+                        removeHint();
+                    }
+                });
+
+                // Create game buttons if they don't already exist
                 if (!$("#enterButton").length) {
                     ["Enter", "Back", "Clear"].forEach(buttonText => {
                         let button = $("<button>").text(buttonText).attr("id", buttonText.toLowerCase() + "Button");

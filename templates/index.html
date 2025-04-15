@@ -57,6 +57,8 @@
             border: 1px solid #999;
             border-radius: 4px;
             background-color: white;
+            -webkit-appearance: none;  /* Remove default iOS styling */
+            -webkit-tap-highlight-color: transparent;  /* Remove tap highlight on mobile */
         }
         #solution {
             margin-top: 20px;
@@ -235,6 +237,30 @@
             outline: none;
             border-color: #4CAF50;
         }
+
+        /* Add loading overlay styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            position: relative;
+        }
     </style>
 </head>
 <body>
@@ -295,9 +321,8 @@
         <span id="switchLabel">Using Assist</span>
     </div>
 
-    <div id="loading-message">
-        <span id="message-text">Not using today's NYT values, loading new dictionary</span>
-        <div class="spinner"></div>
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
     </div>
     
     <div id="result"></div>
@@ -317,6 +342,7 @@
 
     <script>
         $(document).ready(function() {
+            $('#loading-overlay').hide();
             let selectedLetters = [];
             let words = [];
             let lastSide = null;
@@ -426,20 +452,24 @@
             }
 
             function simpleBackgroundChange(element, newColor) {
-                // Get the current background color
-                const currentColor = element.css('background-color');
+                // Remove any existing background styles
+                element.css({
+                    'background': '',
+                    'background-color': '',
+                    'background-image': ''
+                });
                 
-                // Check if the current color is green (#4CAF50)
-                if (currentColor === 'rgb(76, 175, 80)' || currentColor === '#4CAF50') {
-                    // Create a gradient from green to the new color
-                    element.css('background', `linear-gradient(to right, #4CAF50 50%, ${newColor} 50%)`);
-                } else {
-                    // For any other color, just set the new background color
-                    element.css('background-color', newColor);
-                }
+                // Apply the new color with a mobile-friendly approach
+                element.css({
+                    'background-color': newColor,
+                    '-webkit-background-clip': 'padding-box',
+                    'background-clip': 'padding-box'
+                });
                 
-                // Add a transition for smooth color changes
-                element.css('transition', 'background-color 0.3s ease, background 0.3s ease');
+                // Force a repaint to ensure the color changes are visible
+                element[0].style.display='none';
+                element[0].offsetHeight; // Force reflow
+                element[0].style.display='';
             }
             function showHint(box){
                 $(box).css({
@@ -809,67 +839,79 @@
                 response.hint.forEach(letter =>  showHint(getSelectorByLetter(letter.toUpperCase())))
             }) 
             $('#generateButton').click(async function() {
-                await setGrid()
+                console.log("Generating new grid")
+                console.log('showing loading overlay')
+                $('#loading-overlay').show();
+                try {
+                    await setGrid();
+                } finally {
+                    console.log("Hiding loading overlay")
+                    $('#loading-overlay').hide();
+                }
             })
 
             $('#solveButton').click(async function() {
                 removeHint()
                 await clearLines();
-                const data = {
-                    top1: $('#top1').val().toUpperCase(),
-                    top2: $('#top2').val().toUpperCase(),
-                    top3: $('#top3').val().toUpperCase(),
-                    left1: $('#left1').val().toUpperCase(),
-                    left2: $('#left2').val().toUpperCase(),
-                    left3: $('#left3').val().toUpperCase(),
-                    right1: $('#right1').val().toUpperCase(),
-                    right2: $('#right2').val().toUpperCase(),
-                    right3: $('#right3').val().toUpperCase(),
-                    bottom1: $('#bottom1').val().toUpperCase(),
-                    bottom2: $('#bottom2').val().toUpperCase(),
-                    bottom3: $('#bottom3').val().toUpperCase()
-                };
-                console.log("WE ARE HERE!!!")
-                console.log(window.recSol)
-                if(window.recSol.length > 1){
+                $('#loading-overlay').show();
+                try {
+                    const data = {
+                        top1: $('#top1').val().toUpperCase(),
+                        top2: $('#top2').val().toUpperCase(),
+                        top3: $('#top3').val().toUpperCase(),
+                        left1: $('#left1').val().toUpperCase(),
+                        left2: $('#left2').val().toUpperCase(),
+                        left3: $('#left3').val().toUpperCase(),
+                        right1: $('#right1').val().toUpperCase(),
+                        right2: $('#right2').val().toUpperCase(),
+                        right3: $('#right3').val().toUpperCase(),
+                        bottom1: $('#bottom1').val().toUpperCase(),
+                        bottom2: $('#bottom2').val().toUpperCase(),
+                        bottom3: $('#bottom3').val().toUpperCase()
+                    };
+                    console.log("WE ARE HERE!!!")
                     console.log(window.recSol)
-                    data['recSol'] = window.recSol
-                }
+                    if(window.recSol.length > 1){
+                        console.log(window.recSol)
+                        data['recSol'] = window.recSol
+                    }
 
-                const result = await validateValues();
+                    const result = await validateValues();
 
-                const loadingMessage = document.getElementById('loading-message');
-                const resultDiv = document.getElementById('result');
+                    const loadingMessage = document.getElementById('loading-message');
+                    const resultDiv = document.getElementById('result');
 
-                const solveResponse = await fetch('/solve', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
+                    const solveResponse = await fetch('/solve', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+                        
+                    const response = await solveResponse.json();
+
+                    window.letterMap = setLetterMap();
                     
-                const response = await solveResponse.json();
-
-                window.letterMap = setLetterMap();
-                
-                
-                let solutionText = 'NYT Preferred Solution:\n';
-                solutionText += `${response.solution[0][0]} -> ${response.solution[0][1]}\n\n`;
-                solutionText += 'All Generated Solutions:\n';
-                
-                // Add other solutions starting from the second element
-                for (let i = 1; i < response.solution.length; i++) {
-                solutionText += `${response.solution[i][0]} -> ${response.solution[i][1]}\n`;
-                }
-                
-                // Display formatted text (replace \n with <br> for HTML)
-                $('#solution').html(solutionText.replace(/\n/g, '<br>'));
-                
-                // Draw lines for preferred solution
-                let preferred = response.solution[0];
-                drawWords(preferred[0], preferred[1]);
                     
+                    let solutionText = 'NYT Preferred Solution:\n';
+                    solutionText += `${response.solution[0][0]} -> ${response.solution[0][1]}\n\n`;
+                    solutionText += 'All Generated Solutions:\n';
+                    
+                    // Add other solutions starting from the second element
+                    for (let i = 1; i < response.solution.length; i++) {
+                    solutionText += `${response.solution[i][0]} -> ${response.solution[i][1]}\n`;
+                    }
+                    
+                    // Display formatted text (replace \n with <br> for HTML)
+                    $('#solution').html(solutionText.replace(/\n/g, '<br>'));
+                    
+                    // Draw lines for preferred solution
+                    let preferred = response.solution[0];
+                    drawWords(preferred[0], preferred[1]);
+                } finally {
+                    $('#loading-overlay').hide();
+                }
             }) 
 
                 // Initial load with NYT dictionary (true)
@@ -1026,55 +1068,58 @@
                 }
             }
             async function setGrid() {
-                $.ajax({
+                $('#loading-overlay').show();
+                try {
+                    const response = await $.ajax({
                         url: '/new_grid',
                         type: 'GET',
-                        contentType: 'application/json',
-                        success: function(response) {
-                            if (response.grid) {
-                                console.log(response.letters)
-                                const lists = response.grid;
-                                if(response.solution){
-                                    window.recSol = response.solution
-                                }
-                                
-                                const letterMap = {};
-
-                                // Fill top row
-                                $('#top1').val(lists[0][0]); letterMap[lists[0][0]] = '#top1';
-                                $('#top2').val(lists[0][1]); letterMap[lists[0][1]] = '#top2';
-                                $('#top3').val(lists[0][2]); letterMap[lists[0][2]] = '#top3';
-
-                                // Fill left side
-                                $('#left1').val(lists[1][0]); letterMap[lists[1][0]] = '#left1';
-                                $('#left2').val(lists[1][1]); letterMap[lists[1][1]] = '#left2';
-                                $('#left3').val(lists[1][2]); letterMap[lists[1][2]] = '#left3';
-
-                                // Fill right side
-                                $('#right1').val(lists[2][0]); letterMap[lists[2][0]] = '#right1';
-                                $('#right2').val(lists[2][1]); letterMap[lists[2][1]] = '#right2';
-                                $('#right3').val(lists[2][2]); letterMap[lists[2][2]] = '#right3';
-
-                                // Fill bottom row
-                                $('#bottom1').val(lists[3][0]); letterMap[lists[3][0]] = '#bottom1';
-                                $('#bottom2').val(lists[3][1]); letterMap[lists[3][1]] = '#bottom2';
-                                $('#bottom3').val(lists[3][2]); letterMap[lists[3][2]] = '#bottom3';
-
-                                // Store the map globally for later access
-                                window.letterMap = setLetterMap()
-                                
-                                // Clear any existing display
-                                clearLines();
-                                selectedLetters = [];
-                                words = [];
-                                lastSide = null;
-                                updateSelectedLettersDisplay();
-                            }
-                        },
-                        error: function(error) {
-                            $('#solution').text('Error generating letters');
-                        }
+                        contentType: 'application/json'
                     });
+                    
+                    if (response.grid) {
+                        console.log(response.letters)
+                        const lists = response.grid;
+                        if(response.solution){
+                            window.recSol = response.solution
+                        }
+                        
+                        const letterMap = {};
+
+                        // Fill top row
+                        $('#top1').val(lists[0][0]); letterMap[lists[0][0]] = '#top1';
+                        $('#top2').val(lists[0][1]); letterMap[lists[0][1]] = '#top2';
+                        $('#top3').val(lists[0][2]); letterMap[lists[0][2]] = '#top3';
+
+                        // Fill left side
+                        $('#left1').val(lists[1][0]); letterMap[lists[1][0]] = '#left1';
+                        $('#left2').val(lists[1][1]); letterMap[lists[1][1]] = '#left2';
+                        $('#left3').val(lists[1][2]); letterMap[lists[1][2]] = '#left3';
+
+                        // Fill right side
+                        $('#right1').val(lists[2][0]); letterMap[lists[2][0]] = '#right1';
+                        $('#right2').val(lists[2][1]); letterMap[lists[2][1]] = '#right2';
+                        $('#right3').val(lists[2][2]); letterMap[lists[2][2]] = '#right3';
+
+                        // Fill bottom row
+                        $('#bottom1').val(lists[3][0]); letterMap[lists[3][0]] = '#bottom1';
+                        $('#bottom2').val(lists[3][1]); letterMap[lists[3][1]] = '#bottom2';
+                        $('#bottom3').val(lists[3][2]); letterMap[lists[3][2]] = '#bottom3';
+
+                        // Store the map globally for later access
+                        window.letterMap = setLetterMap()
+                        
+                        // Clear any existing display
+                        clearLines();
+                        selectedLetters = [];
+                        words = [];
+                        lastSide = null;
+                        updateSelectedLettersDisplay();
+                    }
+                } catch (error) {
+                    $('#solution').text('Error generating letters');
+                } finally {
+                    $('#loading-overlay').hide();
+                }
             }
        });
     </script>

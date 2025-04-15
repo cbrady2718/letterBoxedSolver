@@ -225,6 +225,7 @@ def solve():
 
 @app.route('/new_grid', methods=['GET'])
 def new_grid():
+    time.sleep(1)
     res = gridGenerator.generateGrid()
     return jsonify({'grid': res[0], 'solution':res[1]})
 

@@ -57,8 +57,20 @@
             border: 1px solid #999;
             border-radius: 4px;
             background-color: white;
-            -webkit-appearance: none;  /* Remove default iOS styling */
-            -webkit-tap-highlight-color: transparent;  /* Remove tap highlight on mobile */
+            -webkit-appearance: none;
+            appearance: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: all 0.3s ease;
+        }
+        input.highlight-green {
+            background-color: #4CAF50;
+            border-color: #4CAF50;
+            color: white;
+        }
+        input.highlight-blue {
+            background-color: #ADD8E6;
+            border-color: #ADD8E6;
+            color: black;
         }
         #solution {
             margin-top: 20px;
@@ -452,24 +464,18 @@
             }
 
             function simpleBackgroundChange(element, newColor) {
-                // Remove any existing background styles
-                element.css({
-                    'background': '',
-                    'background-color': '',
-                    'background-image': ''
-                });
+                // Remove any existing highlight classes
+                element.removeClass('highlight-green highlight-blue');
                 
-                // Apply the new color with a mobile-friendly approach
-                element.css({
-                    'background-color': newColor,
-                    '-webkit-background-clip': 'padding-box',
-                    'background-clip': 'padding-box'
-                });
-                
-                // Force a repaint to ensure the color changes are visible
-                element[0].style.display='none';
-                element[0].offsetHeight; // Force reflow
-                element[0].style.display='';
+                // Add the appropriate highlight class based on the color
+                if (newColor === '#4CAF50') {
+                    element.addClass('highlight-green');
+                } else if (newColor === '#ADD8E6') {
+                    element.addClass('highlight-blue');
+                } else {
+                    // For any other color, just set the background color directly
+                    element.css('background-color', newColor);
+                }
             }
             function showHint(box){
                 $(box).css({

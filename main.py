@@ -225,11 +225,9 @@ def solve():
 
 @app.route('/new_grid', methods=['GET'])
 def new_grid():
-    time.sleep(1)
     res = gridGenerator.generateGrid()
     return jsonify({'grid': res[0], 'solution':res[1]})
 
 if __name__ == "__main__":
-    app.run()
-    #port = int(os.environ.get("PORT", 5000))
-    #app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

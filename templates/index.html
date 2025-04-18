@@ -361,6 +361,42 @@
             let gameStarted = false;
             const buttonContainer = $(".button-container2");
             window.recSol = '';
+            $(document).on("keydown", function(event) {
+                if (!gameStarted) return; // Ignore key presses before "Play" is pressed
+                
+
+                if (event.key === "Backspace" || event.key === "Delete") {
+                    event.preventDefault();
+                    $("#backButton").trigger("click");
+                }else if (event.key === "Enter") {
+                    // Prevent default behavior (like form submission)
+                    event.preventDefault();
+                    
+                    // Trigger the click event on the back button
+                    $("#enterButton").trigger("click");
+                }else{
+                    // Get the typed character
+                    const typedChar = event.key.toLowerCase();
+                    
+                    // Look for a text input containing this character
+                    let matchingInput = null;
+                    $("input[type='text']").each(function() {
+                        if ($(this).val().toLowerCase() === typedChar) {
+                        matchingInput = $(this);
+                        return false; // Break the .each() loop once we find a match
+                        }
+                    });
+                    
+                    // If we found a matching text box, simulate a click on it
+                    if (matchingInput) {
+                        // Prevent default behavior (like typing the letter somewhere)
+                        event.preventDefault();
+                        
+                        // Trigger the existing click handler
+                        matchingInput.trigger("click");
+                    }
+                }
+            });
             $("input[type='text']").each(function() {
                 $(this).on("click", function() {
                     console.log($(this).val());

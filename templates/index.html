@@ -688,23 +688,19 @@
                 }
             }
             
-            function clearLines() {
+            function clearSolution() {
+                $('#solution').empty();
+            }
+
+            async function clearLines() {
                 $('#lineContainer').empty();
                 // Clear the word displays
                 $('#word1Text').empty();
                 $('#word2Text').empty();
-                $('#top1').css('background', '');
-                $('#top2').css('background', '');
-                $('#top3').css('background', '');
-                $('#bottom1').css('background', '');
-                $('#bottom2').css('background', '');
-                $('#bottom3').css('background', '');
-                $('#left1').css('background', '');
-                $('#left2').css('background', '');
-                $('#left3').css('background', '');
-                $('#right3').css('background', '');
-                $('#right1').css('background', '');
-                $('#right2').css('background', '');
+                // Remove highlight classes from all inputs
+                $('input[type="text"]').removeClass('highlight-green highlight-blue');
+                // Clear the solution text
+                clearSolution();
             }
             
             async function drawWords(word1, word2) {
@@ -1024,7 +1020,7 @@
                         words = [];
                         lastSide = null;
                         updateSelectedLettersDisplay();
-                        clearLines();
+                        await clearLines();
                         if(assist.checked){
                             getHint()
                         }
@@ -1067,8 +1063,8 @@
                 }
                 $("#enterButton, #backButton, #clearButton").show();
             });
-            function updateSelectedLettersDisplay() {
-                clearLines();
+            async function updateSelectedLettersDisplay() {
+                await clearLines();
                 if(words.length > 0){
                     let word1 = words[0]
                     if(word1.length == 1){
@@ -1151,7 +1147,7 @@
                         window.letterMap = setLetterMap()
                         
                         // Clear any existing display
-                        clearLines();
+                        await clearLines();
                         selectedLetters = [];
                         words = [];
                         lastSide = null;

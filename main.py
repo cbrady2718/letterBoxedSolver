@@ -1,11 +1,7 @@
 import json
-import logging
-import re
-import time
-import WordPuzzleHintEngine
+
 
 import os
-import requests
 from bs4 import BeautifulSoup
 from utils.UndirectedGraph import UndirectedGraph
 from utils.GetDictionary import getNYTData
@@ -15,7 +11,6 @@ from utils.trieClass import TrieNode
 from utils.trieClass import load_trie_mmap
 import utils.GetDictionary as GetDictionary
 import utils.Solver as Solver
-import time
 import utils.gridGenerator as gridGenerator
 
 '''print('tree loading')
@@ -136,7 +131,6 @@ def processDate(date):
             trieClass.load_python_list_into_trie(dates_data[date]["dictionary"], small_trie)
             using_small = True
         else:
-            print("not using small")
             if "outSolution" in dates_data[date]:
                 for element in dates_data[date]["outSolution"]:
                     large_trie.insert(element)
@@ -231,3 +225,4 @@ def new_grid():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+    #app.run()

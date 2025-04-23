@@ -910,7 +910,6 @@
                     console.log("WE ARE HERE!!!")
                     console.log(window.recSol)
                     if(window.recSol.length > 1){
-                        console.log(window.recSol)
                         data['recSol'] = window.recSol
                     }
 
@@ -931,26 +930,25 @@
 
                     window.letterMap = setLetterMap();
                     
-                    
                     let solutionText = 'NYT Preferred Solution:\n';
                     solutionText += `${response.solution[0][0]} -> ${response.solution[0][1]}\n\n`;
                     solutionText += 'All Generated Solutions:\n';
                     
                     // Add other solutions starting from the second element
                     for (let i = 1; i < response.solution.length; i++) {
-                    solutionText += `${response.solution[i][0]} -> ${response.solution[i][1]}\n`;
+                        solutionText += `${response.solution[i][0]} -> ${response.solution[i][1]}\n`;
                     }
                     
-                    // Display formatted text (replace \n with <br> for HTML)
                     $('#solution').html(solutionText.replace(/\n/g, '<br>'));
                     
                     // Draw lines for preferred solution
                     let preferred = response.solution[0];
                     drawWords(preferred[0], preferred[1]);
+                    $('#solution').html(solutionText.replace(/\n/g, '<br>'));
                 } finally {
                     $('#loading-overlay').hide();
                 }
-            }) 
+            }); 
 
                 // Initial load with NYT dictionary (true)
             console.log("Initial load with NYT dictionary");
@@ -1092,10 +1090,7 @@
                 // $("#selectedLetters").text(selectedLetters.join(""));
                 let word1 = selectedLetters.join("")
                 if(word1.length == 1){
-                    console.log("___________________")
-                    console.log(word1)
-                    console.log(word1[0].toUpperCase())
-                    console.log(getSelectorByLetter(word1[0].toUpperCase()))
+
                     simpleBackgroundChange($(getSelectorByLetter(word1[0].toUpperCase())),'#ADD8E6')
                 }
                 for (let j = 1; j < word1.length; j++) {

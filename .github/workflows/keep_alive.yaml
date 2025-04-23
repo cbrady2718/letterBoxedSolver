@@ -1,0 +1,12 @@
+name: Keep Render Alive
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *" # Every 10 minutes
+
+jobs:
+  keep_alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Instance
+        run: curl -s https://letterboxedsolver.onrender.com/ > /dev/null

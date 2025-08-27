@@ -28,7 +28,7 @@ jobs:
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions"
-          git config --global user.email "cbrady2718@gmail.com"
+          git config --global user.email "chrsbrdy@gmail.com"
           
           git stash  # Temporarily save unstaged changes
           git pull --rebase  # Get the latest changes

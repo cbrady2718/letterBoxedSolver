@@ -665,26 +665,30 @@
             function prepareWordDisplays(word1, word2) {
                 $('#word1Text').empty();
                 $('#word2Text').empty();
-                
+
                 // Create spans for each letter in word1
                 for (let i = 0; i < word1.length; i++) {
                     $('#word1Text').append(`<span class="letter" id="word1-letter-${i}">${word1[i].toUpperCase()}</span>`);
                 }
-                
+
                 // Create spans for each letter in word2
                 for (let i = 0; i < word2.length; i++) {
                     $('#word2Text').append(`<span class="letter" id="word2-letter-${i}">${word2[i].toUpperCase()}</span>`);
                 }
             }
-            
+
             // Function to show a specific letter in a word
             function showLetterInWord(wordNum, position, letter) {
-                // Make the letter visible
-                if (wordNum === 1) {
-                    $(`#word1-letter-${position}`).css('opacity', 1);
-                } else {
-                    $(`#word2-letter-${position}`).css('opacity', 1);
-                }
+                // Wait for the DOM to be ready for this element
+                setTimeout(function() {
+                    if (wordNum === 1) {
+                        const el = $(`#word1-letter-${position}`);
+                        if (el.length) el.css('opacity', 1);
+                    } else {
+                        const el = $(`#word2-letter-${position}`);
+                        if (el.length) el.css('opacity', 1);
+                    }
+                }, 0);
             }
             
             function clearSolution() {

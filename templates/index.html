@@ -508,17 +508,21 @@
             }
 
             function simpleBackgroundChange(element, newColor) {
-                // Remove any existing highlight classes
+                // Remove highlight classes and reset styles for mobile glitch fix
                 element.removeClass('highlight-green highlight-blue');
-                
+                element.css({
+                    backgroundColor: '',
+                    borderColor: '',
+                    color: '',
+                    outline: '',
+                    boxShadow: ''
+                });
                 // Add the appropriate highlight class based on the color
                 if (newColor === '#4CAF50') {
                     element.addClass('highlight-green');
                 } else if (newColor === '#ADD8E6') {
                     element.addClass('highlight-blue');
-                } else {
-                    // For any other color, just set the background color directly
-                    element.css('background-color', newColor);
+                }
                 }
             }
             function showHint(box){
@@ -935,11 +939,13 @@
                     }
                     
                     $('#solution').html(solutionText.replace(/\n/g, '<br>'));
-                    
+                    // Show selected letters for preferred solution (update global selectedLetters and words)
+                    words = [response.solution[0][0], response.solution[0][1]];
+                    selectedLetters = [];
+                    updateSelectedLettersDisplay();
                     // Draw lines for preferred solution
                     let preferred = response.solution[0];
                     drawWords(preferred[0], preferred[1]);
-                    $('#solution').html(solutionText.replace(/\n/g, '<br>'));
                 } finally {
                     $('#loading-overlay').hide();
                 }

@@ -197,8 +197,6 @@ def solve():
     global recommendedSol
     recom = ''
     data = request.get_json()
-    if 'recSol' in data:
-        recom = data['recSol']
     top_letters = [data['top1'], data['top2'], data['top3']]
     left_letters = [data['left1'], data['left2'], data['left3']]
     right_letters = [data['right1'], data['right2'], data['right3']]
@@ -223,6 +221,6 @@ def new_grid():
     return jsonify({'grid': res[0], 'solution':res[1]})
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-    #app.run()
+    # port = int(os.environ.get("PORT", 5000))
+    # app.run(host="0.0.0.0", port=port)
+    app.run()

@@ -58,6 +58,64 @@ class Trie:
             out.append(element)
         return out
 
+    def trie_to_dict_helper(node):
+        """Recursively convert TrieNode to a dictionary"""
+        return {
+            'children': {char: trie_to_dict(child) for char, child in node.children.items()},
+            'is_end_of_word': node.is_end_of_word
+        }
+    def trie_to_dict(self):
+        return Trie.trie_to_dict_helper(self.root)
+    
+    def trim_trie_to_grid(trie, grid):
+        # Build a mapping from letter to its side index
+        letter_to_side = {}
+        for side_idx, side in enumerate(grid):
+            for letter in side:
+                letter_to_side[letter.lower()] = side_idx
+
+        new_trie = Trie()
+
+        def dfs(node, word, last_side):
+            if node.is_end_of_word and word:
+                new_trie.insert(word)
+            for char, child in node.children.items():
+                char_lower = char.lower()
+                if char_lower not in letter_to_side:
+                    continue
+                side_idx = letter_to_side[char_lower]
+                if side_idx == last_side:
+                    continue
+                dfs(child, word + char_lower, side_idx)
+
+        # Start DFS from each letter in the grid
+        for side_idx, side in enumerate(grid):
+            for letter in side:
+                node = trie.root.children.get(letter.lower())
+                if node:
+                    dfs(node, letter.lower(), side_idx)
+
+        return new_trie
+    def dict_to_trie_helper(self, node, node_dict):
+        """Recursively convert dictionary back to TrieNode"""
+        node.is_end_of_word = node_dict['is_end_of_word']
+        for char, child_dict in node_dict['children'].items():
+            child_node = TrieNode()
+            node.children[char] = child_node
+            self.dict_to_trie_helper(child_node, child_dict)
+
+    def dict_to_trie(self, trie_dict):
+        """Convert dictionary representation back to Trie"""
+        self.root = TrieNode()
+        self.dict_to_trie_helper(self.root, trie_dict)
+    
+def trie_to_dict(node):
+    """Recursively convert TrieNode to a dictionary"""
+    return {
+        'children': {char: trie_to_dict(child) for char, child in node.children.items()},
+        'is_end_of_word': node.is_end_of_word
+    }
+
 def load_dictionary_into_trie(file_path, trie):
     """Loads all words from a dictionary file into the Trie"""
     with open(file_path, 'r') as file:

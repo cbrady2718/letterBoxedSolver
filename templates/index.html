@@ -360,10 +360,11 @@
     <div id="solution"></div>
 
     <script>
+        window.disable = false;
         let selectedLettersArray = [];
         let selectedSidesArray = [];
 
-
+        let idle = true;
         let selectedLetters = [];
         let selectedSides = [];
         $(document).ready(function() {
@@ -383,8 +384,7 @@
                     contentType: 'application/json',
                     data: JSON.stringify({}),
                     success: function(response) {
-                        $('#clearSelection').click(); 
-                        console.log(response);
+                        clearSelectionFunctionOne();
                         // Fill text boxes with sides
                         if (response.sides) {
                             const ids = [
@@ -440,7 +440,8 @@
                     contentType: 'application/json',
                     data: JSON.stringify({ date: selectedDate }),
                     success: function(response) {
-                        $('#clearSelection').click(); 
+                        console.log("entering clear from date change");
+                        clearSelectionFunctionTwo();
                         console.log(response)
                         if (response.solution) {
                             window.solution = response.solution;
@@ -473,13 +474,69 @@
                 });
             });
             // Clear button: resets selection
+            console.log("do we just enter randomly?")
             $('#clearSelection').on('click', function() {
+                console.log('clear 3 started');
+                clearSelectionFunctionThree();
+                console.log('clear 3 finished')
+            });
+            function clearSelectionFunctionOne() {
+                debugger; // Add a debugger statement here
+                console.log("=== CLEAR FUNCTION 1 START ===");
+                console.trace("Clear function call stack");
+                console.log("Current state before clear:");
+                console.log("selectedLetters:", selectedLetters.slice());
+                console.log("selectedSides:", selectedSides.slice());
+                console.log("selectedLettersArray:", selectedLettersArray.slice());
+                console.log("selectedSidesArray:", selectedSidesArray.slice());
+                
                 selectedLetters = [];
                 selectedSides = [];
                 selectedLettersArray = [];
                 selectedSidesArray = [];
                 updateSelectedLettersDisplay();
-            });
+                window.disable = false;
+                
+                console.log("=== CLEAR FUNCTION END ===");
+            }
+            function clearSelectionFunctionTwo() {
+                debugger; // Add a debugger statement here
+                console.log("=== CLEAR FUNCTION  2 START ===");
+                console.trace("Clear function call stack");
+                console.log("Current state before clear:");
+                console.log("selectedLetters:", selectedLetters.slice());
+                console.log("selectedSides:", selectedSides.slice());
+                console.log("selectedLettersArray:", selectedLettersArray.slice());
+                console.log("selectedSidesArray:", selectedSidesArray.slice());
+
+                selectedLetters = [];
+                selectedSides = [];
+                selectedLettersArray = [];
+                selectedSidesArray = [];
+                updateSelectedLettersDisplay();
+                window.disable = false;
+
+                console.log("=== CLEAR FUNCTION END ===");
+            }
+            function clearSelectionFunctionThree() {
+                debugger; // Add a debugger statement here
+                console.log("=== CLEAR FUNCTION 3 START ===");
+                console.trace("Clear function call stack");
+                console.log("Current state before clear:");
+                console.log("selectedLetters:", selectedLetters.slice());
+                console.log("selectedSides:", selectedSides.slice());
+                console.log("selectedLettersArray:", selectedLettersArray.slice());
+                console.log("selectedSidesArray:", selectedSidesArray.slice());
+
+                selectedLetters = [];
+                selectedSides = [];
+                selectedLettersArray = [];
+                selectedSidesArray = [];
+                updateSelectedLettersDisplay();
+                window.disable = false;
+
+                console.log("=== CLEAR FUNCTION END ===");
+            }
 
             function findAllSolutions(){
                 if (!window.trie) return [];
@@ -489,6 +546,7 @@
             }
 
             $('#solveButton').on('click', function() {
+                window.disable = true;
                 let trie = window.trie;
                 // Gather grid letters from inputs to match Python structure
                 const data = {
@@ -569,6 +627,7 @@
             });
             // Back button: removes last letter
             $('#backSelection').on('click', function() {
+                if(window.disable) return;
                 console.log('Back button clicked');
                 if(selectedLetters.length===1 && selectedLettersArray.length>0){
                     selectedLetters = selectedLettersArray.pop();
@@ -612,7 +671,7 @@
                     usedLetters = usedLetters.concat(arr);
                 });
                 usedLetters = usedLetters.map(l => l.toUpperCase());
-
+                console.log(usedLetters)
                 // Check if every grid letter is present in usedLetters
                 return gridLetters.every(letter => usedLetters.includes(letter));
             }
@@ -620,19 +679,22 @@
 
             // Enter button: logs the current word and checks validity
             $('#enterSelection').on('click', function() {
-                console.log('Enter button clicked');
+                if(window.disable) return;
                 if (selectedLetters.length > 0) {
                     const word = selectedLetters.join('');
                     // Check if word is valid using searchWord
                     let isValid = false;
                     if (window.trie) {
                         isValid = searchWord(window.trie, word.toLowerCase());
+                        console.log(isValid)
                     }
                     if (isValid) {
                         console.log('Entered valid word:', word);
                         $('#solution').text('Valid word: ' + word).css('color', '#4CAF50');
                         // Check for win condition
                         if (checkForWin()) {
+                            console.log("won")
+                            window.disable = true;
                             $('#solution').text('Congratulations! You solved the puzzle in ' + (selectedLettersArray.length + 1) + ' words').css('color', '#FFD700');
                         }
                         else{
@@ -650,7 +712,9 @@
                     console.log(selectedSidesArray);
                     console.log(selectedSides);
                     updateSelectedLettersDisplay();
+                    console.log('After enter, current selection:', selectedLetters.join(''))
                 }
+                console.log('End of enter processing');
             });
 
             function getSideIndex(inputId) {
@@ -711,6 +775,7 @@
 
                 // Helper to get center coordinates of an input
                 function getInputCenter(id) {
+                    if (!id) return {x: 0, y: 0};
                     let $input = $('#' + id);
                     let offset = $input.offset();
                     let parentOffset = $svg.parent().offset();
@@ -759,9 +824,7 @@
 
                 // Draw gray lines for selectedLettersArray
                 let usedIdsGray = new Set();
-                for (let i = 0; i < 3; i++) {
-                    console.log("Iteration number: " + i);
-                }
+
                 selectedLettersArray.forEach(arr => {
                     let prevId = null; // Reset for each word
                     for(let i = 1; i < arr.length; i++){
@@ -800,6 +863,7 @@
                     }
                     prevId = id;
                 });
+                console.log('Updated selected letters display');
             }
 
             // Handle letter click
@@ -818,11 +882,14 @@
 
             // Handle keyboard input
             $(document).on("keydown", function(e) {
+                if(window.disable) return;
                 console.log('Key pressed:', e.key);
                 const key = e.key.toUpperCase();
                 console.log(key)
                 // Enter key triggers "Enter" button
                 if (e.key === "Enter") {
+                    e.preventDefault(); // Prevent default behavior (e.g., form submission)
+                    e.stopPropagation(); // Stop event from bubbling to other handlers
                     $('#enterSelection').click();
                     return;
                 }

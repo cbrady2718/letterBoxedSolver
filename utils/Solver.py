@@ -30,13 +30,8 @@ def traverse(node: trieClass.TrieNode, prfix: str, letterGraph: GetDictionary.Un
         if element in node.children:
             traverse(node.children[element], prfix+element, letterGraph)
 
-def solutions(word_list, chars, nytSol):
+def solutions(word_list, chars):
     output = []
-    print(len(nytSol))
-    print(nytSol)
-    if len(nytSol)> 0:
-        print("im inside")
-        output.append([nytSol[0].lower(),nytSol[1].lower()])
     for word in word_list:
         last = word[len(word)-1]
         matches = [w for w in word_list if w[0] == last and w!= word]
@@ -47,12 +42,10 @@ def solutions(word_list, chars, nytSol):
     print(len(output))
     return output
 
-def getSolutions(letters, trie, nytSol):
-    print(letters)
-    print(nytSol)
+def getSolutions(letters, trie):
     global wordSet
     wordSet = []
     g = GetDictionary.createletterGraph(letters)
     letterSet = GetDictionary.createLetterSet(letters)
     traverse(trie.getRoot(), '', g)
-    return solutions(wordSet, letterSet, nytSol)
+    return solutions(wordSet, letterSet)

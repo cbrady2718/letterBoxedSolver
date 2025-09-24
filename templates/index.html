@@ -61,6 +61,9 @@
             appearance: none;
             -webkit-tap-highlight-color: transparent;
             transition: all 0.3s ease;
+            caret-color: transparent;
+            user-select: none;
+            touch-action: manipulation;
         }
         input.highlight-green {
             background-color: #4CAF50;
@@ -263,7 +266,7 @@
             align-items: center;
             z-index: 1000;
         }
-
+/* 
         .loading-spinner {
             width: 50px;
             height: 50px;
@@ -272,15 +275,15 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
             position: relative;
-        }
+        } */
     </style>
 </head>
 <body>
     <h1>NYT Letterboxed Solver</h1>
     <div class="date-selector">
-        <label for="dateSelect">Puzzle Archive: </label>
+        <label for="dateSelect">Date Selector: </label>
         <select id="dateSelect">
-            <option value="">Select Date</option>
+            <option value="">Date</option>
         </select>
     </div>
     <div class="square-container">
@@ -317,12 +320,16 @@
     </div>
 
     <div class="button-container">
-        <button id="playButton">Play</button>
         <button id="solveButton">Solve</button>
         <button id="generateButton">Generate New Letters</button>
-       <!--<button id="hintButton">Hint</button>
-    -->
     </div>
+
+    <div class="action-buttons" style="margin-top:10px;">
+        <button id="clearSelection">Clear</button>
+        <button id="backSelection">Back</button>
+        <button id="enterSelection">Enter</button>
+    </div>
+    
     <div class="button-container2">
     </div>
     <div class="switch-container">
@@ -333,10 +340,10 @@
         <span id="switchLabel">Using Assist</span>
     </div>
 
-    <div id="loading-overlay" class="loading-overlay">
+    <!-- <div id="loading-overlay" class="loading-overlay">
         <div class="loading-spinner"></div>
     </div>
-    
+     -->
     <div id="result"></div>
 
     <div id="wordFormationArea">
@@ -353,808 +360,573 @@
     <div id="solution"></div>
 
     <script>
+        window.disable = false;
+        let selectedLettersArray = [];
+        let selectedSidesArray = [];
+
+        let idle = true;
+        let selectedLetters = [];
+        let selectedSides = [];
         $(document).ready(function() {
-            $('#loading-overlay').hide();
-            let selectedLetters = [];
-            let words = [];
-            let lastSide = null;
-            let gameStarted = false;
-            const buttonContainer = $(".button-container2");
-            window.recSol = '';
-            $(document).on("keydown", function(event) {
-                if (!gameStarted) return; // Ignore key presses before "Play" is pressed
-                
+            $("input[type='text']")
+                .attr("readonly", true)
+                .attr("tabindex", "0") // allow focus for click events
+                .on("focus", function() { this.blur(); })
+                .on("click", function() {
+                    console.log('Clicked letter:', $(this).val());
+                });
 
-                if (event.key === "Backspace" || event.key === "Delete") {
-                    event.preventDefault();
-                    $("#backButton").trigger("click");
-                }else if (event.key === "Enter") {
-                    // Prevent default behavior (like form submission)
-                    event.preventDefault();
-                    
-                    // Trigger the click event on the back button
-                    $("#enterButton").trigger("click");
-                }else{
-                    // Get the typed character
-                    const typedChar = event.key.toLowerCase();
-                    
-                    // Look for a text input containing this character
-                    let matchingInput = null;
-                    $("input[type='text']").each(function() {
-                        if ($(this).val().toLowerCase() === typedChar) {
-                        matchingInput = $(this);
-                        return false; // Break the .each() loop once we find a match
+            // Generate button: fetch new grid and trie
+            $('#generateButton').click(function() {
+                $.ajax({
+                    url: '/generate_grid', // New endpoint
+                    type: 'GET',
+                    contentType: 'application/json',
+                    data: JSON.stringify({}),
+                    success: function(response) {
+                        clearSelectionFunctionOne();
+                        // Fill text boxes with sides
+                        if (response.sides) {
+                            const ids = [
+                                ['top1', 'top2', 'top3'],
+                                ['left1', 'left2', 'left3'],
+                                ['right1', 'right2', 'right3'],
+                                ['bottom1', 'bottom2', 'bottom3']
+                            ];
+                            for (let i = 0; i < 4; i++) {
+                                for (let j = 0; j < 3; j++) {
+                                    $('#' + ids[i][j]).val(response.sides[i][j]);
+                                }
+                            }
                         }
-                    });
-                    
-                    // If we found a matching text box, simulate a click on it
-                    if (matchingInput) {
-                        // Prevent default behavior (like typing the letter somewhere)
-                        event.preventDefault();
-                        
-                        // Trigger the existing click handler
-                        matchingInput.trigger("click");
-                    }
-                }
-            });
-            $("input[type='text']").each(function() {
-                $(this).on("click", function() {
-                    console.log($(this).val());
-                    if (!gameStarted) return; // Ignore clicks before "Play" is pressed
-                    removeHint()
-
-                    let sideMatch = this.id.match(/top|bottom|left|right/);
-                    if (!sideMatch) return;
-
-                    let side = sideMatch[0];
-
-                    // First click allowed anywhere, subsequent clicks must be from a different side
-                    if (selectedLetters.length === 0 || side !== lastSide) {
-                        selectedLetters.push(this.value);
-                        lastSide = side;
-                        updateSelectedLettersDisplay();
-                    }
-                    if(assist.checked){
-                            getHint()
+                        // Store trie as JS object
+                        if (response.trie) {
+                            window.trie = response.trie;
+                            console.log('Trie loaded:', window.trie);
+                        }
+                        if (response.solution) {
+                            window.solution = response.solution;
+                            console.log('Solution loaded:', window.solution);
+                        }
+                    },
+                    error: function() {
+                        $('#solution').text('Error generating grid');
                     }
                 });
             });
-            // Fetch the JSON file and populate the dropdown
+            // Disable all text boxes
+        
+            // Fetch date options and auto-select latest
             $.getJSON('/get_dates', function(data) {
                 const $select = $('#dateSelect');
-                
-                // Assuming your JSON has dates as keys
-                Object.keys(data).forEach(date => {
-                    $select.append($('<option></option>')
-                        .attr('value', date)
-                        .text(date));
+                const dates = Object.keys(data).sort(); // Sort to get latest
+                dates.forEach(date => {
+                    $select.append($('<option></option>').attr('value', date).text(date));
                 });
+                if (dates.length > 0) {
+                    const latestDate = dates[dates.length - 1];
+                    $select.val(latestDate).trigger('change');
+                }
             });
-
-            // Handle date selection
+        
+            // When date changes, fetch puzzle data
             $('#dateSelect').on('change', function() {
                 const selectedDate = $(this).val();
-                $("#enterButton, #backButton, #clearButton").hide();
-                gameStarted = false;
-                $('#solution').html("");
-                if (selectedDate) {
-                    // Make an AJAX call to your Flask endpoint
-                    $.ajax({
-                        url: '/process_date',
-                        type: 'POST',
-                        data: JSON.stringify({ date: selectedDate }),
-                        contentType: 'application/json',
-                        success: function(response) {
-                            if (response.letters) {
-                                console.log(response.letters)
-                                const lists = response.letters;
-                                
-                                const letterMap = {};
+                if (!selectedDate) return;
+                $.ajax({
+                    url: '/get_puzzle_data',
+                    type: 'POST',
 
-                                // Fill top row
-                                $('#top1').val(lists[0][0]); letterMap[lists[0][0]] = '#top1';
-                                $('#top2').val(lists[0][1]); letterMap[lists[0][1]] = '#top2';
-                                $('#top3').val(lists[0][2]); letterMap[lists[0][2]] = '#top3';
-
-                                // Fill left side
-                                $('#left1').val(lists[1][0]); letterMap[lists[1][0]] = '#left1';
-                                $('#left2').val(lists[1][1]); letterMap[lists[1][1]] = '#left2';
-                                $('#left3').val(lists[1][2]); letterMap[lists[1][2]] = '#left3';
-
-                                // Fill right side
-                                $('#right1').val(lists[2][0]); letterMap[lists[2][0]] = '#right1';
-                                $('#right2').val(lists[2][1]); letterMap[lists[2][1]] = '#right2';
-                                $('#right3').val(lists[2][2]); letterMap[lists[2][2]] = '#right3';
-
-                                // Fill bottom row
-                                $('#bottom1').val(lists[3][0]); letterMap[lists[3][0]] = '#bottom1';
-                                $('#bottom2').val(lists[3][1]); letterMap[lists[3][1]] = '#bottom2';
-                                $('#bottom3').val(lists[3][2]); letterMap[lists[3][2]] = '#bottom3';
-
-                                // Store the map globally for later access
-                                window.letterMap = setLetterMap()
-                                
-                                // Clear any existing display
-                                clearLines();
-                                selectedLetters = [];
-                                words = [];
-                                lastSide = null;
-                                updateSelectedLettersDisplay();
-                            }
-                        },
-                        error: function(error) {
-                            $('#solution').text('Error generating letters');
+                    contentType: 'application/json',
+                    data: JSON.stringify({ date: selectedDate }),
+                    success: function(response) {
+                        console.log("entering clear from date change");
+                        clearSelectionFunctionTwo();
+                        console.log(response)
+                        if (response.solution) {
+                            window.solution = response.solution;
+                            console.log('Solution loaded:', window.solution);
                         }
-                    });
-                }
-            });
-            // Auto-advance to next input when a letter is entered
-            $('input').on('input', function() {
-                if (this.value.length === 1) {
-                    window.window.recSol = '';
-                    $(this).next('input');
-                }
-            });
-            function getSelectorByLetter(letter) {
-                return window.letterMap ? window.letterMap[letter] : null;
-            }
-
-            function simpleBackgroundChange(element, newColor) {
-                // Remove any existing highlight classes
-                element.removeClass('highlight-green highlight-blue');
-                
-                // Add the appropriate highlight class based on the color
-                if (newColor === '#4CAF50') {
-                    element.addClass('highlight-green');
-                } else if (newColor === '#ADD8E6') {
-                    element.addClass('highlight-blue');
-                } else {
-                    // For any other color, just set the background color directly
-                    element.css('background-color', newColor);
-                }
-            }
-            function showHint(box){
-                $(box).css({
-                    'box-shadow': '0 0 5px 2px red',
-                });
-            }
-            function removeHint(){
-                $('#top1').css('box-shadow', 'none');
-                $('#top2').css('box-shadow', 'none');
-                $('#top3').css('box-shadow', 'none');
-                $('#bottom1').css('box-shadow', 'none');
-                $('#bottom2').css('box-shadow', 'none');
-                $('#bottom3').css('box-shadow', 'none');
-                $('#left1').css('box-shadow', 'none');
-                $('#left2').css('box-shadow', 'none');
-                $('#left3').css('box-shadow', 'none');
-                $('#right3').css('box-shadow', 'none');
-                $('#right1').css('box-shadow', 'none');
-                $('#right2').css('box-shadow', 'none');
-            }
-
-            function drawLine(start, end, color = '#4CAF50', delay = 0, changeStartBackground = false, currentPosition) {
-                console.log('in draw func')
-                console.log(start)
-                console.log(end)
-                const containerRect = $('.square-container')[0].getBoundingClientRect();
-                const startRect = start[0].getBoundingClientRect();
-                const endRect = end[0].getBoundingClientRect();
-                
-                // Determine start position based on element position
-                if (start.is('#bottom1, #bottom2, #bottom3')) {
-                    // Bottom elements: start from the top center
-                    startX = startRect.left + (startRect.width / 2) - containerRect.left;
-                    startY = startRect.top - containerRect.top;
-                } else if (start.is('#top1, #top2, #top3')) {
-                    // Top elements: start from the bottom center
-                    startX = startRect.left + (startRect.width / 2) - containerRect.left;
-                    startY = startRect.bottom - containerRect.top;
-                } else if (start.is('#left1, #left2, #left3')) {
-                    // Left elements: start from the right center
-                    startX = startRect.right - containerRect.left;
-                    startY = startRect.top + (startRect.height / 2) - containerRect.top;
-                } else if (start.is('#right1, #right2, #right3')) {
-                    // Right elements: start from the left center
-                    startX = startRect.left - containerRect.left;
-                    startY = startRect.top + (startRect.height / 2) - containerRect.top;
-                } else {
-                    // Default to center of the element
-                    startX = startRect.left + (startRect.width / 2) - containerRect.left;
-                    startY = startRect.top + (startRect.height / 2) - containerRect.top;
-                }
-                
-                // Determine end position based on element position
-                if (end.is('#bottom1, #bottom2, #bottom3')) {
-                    // Bottom elements: end at the top center
-                    endX = endRect.left + (endRect.width / 2) - containerRect.left;
-                    endY = endRect.top - containerRect.top;
-                } else if (end.is('#top1, #top2, #top3')) {
-                    // Top elements: end at the bottom center
-                    endX = endRect.left + (endRect.width / 2) - containerRect.left;
-                    endY = endRect.bottom - containerRect.top;
-                } else if (end.is('#left1, #left2, #left3')) {
-                    // Left elements: end at the right center
-                    endX = endRect.right - containerRect.left;
-                    endY = endRect.top + (endRect.height / 2) - containerRect.top;
-                } else if (end.is('#right1, #right2, #right3')) {
-                    // Right elements: end at the left center
-                    endX = endRect.left - containerRect.left;
-                    endY = endRect.top + (endRect.height / 2) - containerRect.top;
-                } else {
-                    // Default to center of the element
-                    endX = endRect.left + (endRect.width / 2) - containerRect.left;
-                    endY = endRect.top + (endRect.height / 2) - containerRect.top;
-                }
-                
-                // Create a new line element
-                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                line.setAttribute('class', 'solution-line');
-                line.setAttribute('x1', startX);
-                line.setAttribute('y1', startY);
-                // Don't set initial x2/y2 - let the animation handle it
-                line.setAttribute('stroke', color);
-                line.style.stroke = color;
-                line.setAttribute('stroke-width', '3');
-                line.setAttribute('stroke-linecap', 'round');
-                line.setAttribute('marker-end', 'url(#arrowhead-' + color.replace('#', '') + ')');
-                // Set initial visibility to hidden
-                line.style.visibility = 'hidden';
-                
-                // Add the new line to the SVG container
-                $('#lineContainer').append(line);
-                
-                // Create and add the animations
-                const animate1 = document.createElementNS("http://www.w3.org/2000/svg", "animate");
-                animate1.setAttribute('attributeName', 'x2');
-                animate1.setAttribute('from', startX);
-                animate1.setAttribute('to', endX);
-                animate1.setAttribute('dur', '1s');
-                animate1.setAttribute('begin', `${delay}s`);
-                animate1.setAttribute('fill', 'freeze');
-                
-                const animate2 = document.createElementNS("http://www.w3.org/2000/svg", "animate");
-                animate2.setAttribute('attributeName', 'y2');
-                animate2.setAttribute('from', startY);
-                animate2.setAttribute('to', endY);
-                animate2.setAttribute('dur', '1s');
-                animate2.setAttribute('begin', `${delay}s`);
-                animate2.setAttribute('fill', 'freeze');
-                
-                // Add a set animation to make the line visible when it starts
-                const setVisible = document.createElementNS("http://www.w3.org/2000/svg", "set");
-                setVisible.setAttribute('attributeName', 'visibility');
-                setVisible.setAttribute('to', 'visible');
-                setVisible.setAttribute('begin', `${delay}s`);
-                setVisible.setAttribute('dur', 'indefinite');
-
-                if (changeStartBackground) {
-                    animate1.addEventListener('beginEvent', function() {
-                        simpleBackgroundChange(start, color);
-                        // Get and display the letter for the first element in the animation
-                        const startLetter = start.val().toUpperCase();
-                        if (color === '#4CAF50') {
-                            showLetterInWord(1, 0, startLetter);
-                        } else {
-                            showLetterInWord(2, 0, startLetter);
-                        }
-                    });
-                }
-                
-                animate2.addEventListener('endEvent', function() {
-                    simpleBackgroundChange(end, color);
-                    // Get and display the letter for the end element in the animation
-                    const endLetter = end.val().toUpperCase();
-                    
-                    if (color === '#4CAF50') {
-                        // For first word (green)
-                        showLetterInWord(1, currentPosition, endLetter);
-                    } else {
-                        // For second word (blue)
-                        showLetterInWord(2, currentPosition, endLetter);
-                    }
-                });
-
-                line.appendChild(animate1);
-                line.appendChild(animate2);
-                line.appendChild(setVisible);
-
-                return line;
-            }
-            
-            // Function to prepare word displays
-            function prepareWordDisplays(word1, word2) {
-                $('#word1Text').empty();
-                $('#word2Text').empty();
-                
-                // Create spans for each letter in word1
-                for (let i = 0; i < word1.length; i++) {
-                    $('#word1Text').append(`<span class="letter" id="word1-letter-${i}">${word1[i].toUpperCase()}</span>`);
-                }
-                
-                // Create spans for each letter in word2
-                for (let i = 0; i < word2.length; i++) {
-                    $('#word2Text').append(`<span class="letter" id="word2-letter-${i}">${word2[i].toUpperCase()}</span>`);
-                }
-            }
-            
-            // Function to show a specific letter in a word
-            function showLetterInWord(wordNum, position, letter) {
-                // Make the letter visible
-                if (wordNum === 1) {
-                    $(`#word1-letter-${position}`).css('opacity', 1);
-                } else {
-                    $(`#word2-letter-${position}`).css('opacity', 1);
-                }
-            }
-            
-            function clearSolution() {
-                $('#solution').empty();
-            }
-
-            async function clearLines() {
-                $('#lineContainer').empty();
-                // Clear the word displays
-                $('#word1Text').empty();
-                $('#word2Text').empty();
-                // Remove highlight classes from all inputs
-                $('input[type="text"]').removeClass('highlight-green highlight-blue');
-                // Clear the solution text
-                clearSolution();
-            }
-            
-            async function drawWords(word1, word2) {
-                // First, clear any existing display
-                clearLines();
-                
-                // Set up the word displays
-                prepareWordDisplays(word1, word2);
-                
-                // Draw lines for first word
-                for (let j = 1; j < word1.length; j++) {
-                    let first = getSelectorByLetter(word1[j-1].toUpperCase());
-                    let second = getSelectorByLetter(word1[j].toUpperCase());
-                    let isFirst = j == 1;
-                    drawLine($(first), $(second), '#4CAF50', (j - 1) * 1, isFirst, j); // Green for word one
-                }
-                
-                let firstWordDelay = (word1.length - 1) * 1;
-                
-                // Draw lines for second word
-                for (let j = 1; j < word2.length; j++) {
-                    let first = getSelectorByLetter(word2[j-1].toUpperCase());
-                    let second = getSelectorByLetter(word2[j].toUpperCase());
-                    let isFirst = j == 1;
-                    drawLine($(first), $(second), '#ADD8E6', firstWordDelay + (j - 1) * 1, isFirst,j); // Blue for word two
-                }
-            }
-            
-            function setLetterMap(){
-                const letterMap = {}
-                letterMap[$('#top1').val().toUpperCase()] = '#top1';
-                letterMap[$('#top2').val().toUpperCase()] = '#top2';
-                letterMap[$('#top3').val().toUpperCase()] = '#top3';
-                letterMap[$('#bottom1').val().toUpperCase()] = '#bottom1';
-                letterMap[$('#bottom2').val().toUpperCase()] = '#bottom2';
-                letterMap[$('#bottom3').val().toUpperCase()] = '#bottom3';
-                letterMap[$('#left1').val().toUpperCase()] = '#left1';
-                letterMap[$('#left2').val().toUpperCase()] = '#left2';
-                letterMap[$('#left3').val().toUpperCase()] = '#left3';
-                letterMap[$('#right1').val().toUpperCase()] = '#right1';
-                letterMap[$('#right2').val().toUpperCase()] = '#right2';
-                letterMap[$('#right3').val().toUpperCase()] = '#right3';
-                return letterMap
-            }
-
-            function loadDictionary(useNYT) {
-                return new Promise((resolve, reject) => {
-                    fetch('/load_dictionary', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ useNYT: useNYT })  // Send the boolean parameter
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log("Dictionary loaded:", data);
-                        resolve(data);
-                    })
-                    .catch(error => {
-                        console.error('Error loading dictionary:', error);
-                        reject(error);
-                    });
-                });
-            }
-
-            async function validateValues() {
-                const data = {
-                    top1: $('#top1').val().toUpperCase(),
-                    top2: $('#top2').val().toUpperCase(),
-                    top3: $('#top3').val().toUpperCase(),
-                    left1: $('#left1').val().toUpperCase(),
-                    left2: $('#left2').val().toUpperCase(),
-                    left3: $('#left3').val().toUpperCase(),
-                    right1: $('#right1').val().toUpperCase(),
-                    right2: $('#right2').val().toUpperCase(),
-                    right3: $('#right3').val().toUpperCase(),
-                    bottom1: $('#bottom1').val().toUpperCase(),
-                    bottom2: $('#bottom2').val().toUpperCase(),
-                    bottom3: $('#bottom3').val().toUpperCase()
-                };
-                
-                try {
-                    const response = await fetch('/validate', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.all_match) {
-                    console.log("returning true");
-                    return true;
-                    } else {
-                    // You can display which values don't match
-                    console.log("returning false");
-                    return false;
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    return false; // Default return value in case of error
-                }
-            }
-            async function getHint() {
-                removeHint()
-                const data = {
-                    top1: $('#top1').val().toUpperCase(),
-                    top2: $('#top2').val().toUpperCase(),
-                    top3: $('#top3').val().toUpperCase(),
-                    left1: $('#left1').val().toUpperCase(),
-                    left2: $('#left2').val().toUpperCase(),
-                    left3: $('#left3').val().toUpperCase(),
-                    right1: $('#right1').val().toUpperCase(),
-                    right2: $('#right2').val().toUpperCase(),
-                    right3: $('#right3').val().toUpperCase(),
-                    bottom1: $('#bottom1').val().toUpperCase(),
-                    bottom2: $('#bottom2').val().toUpperCase(),
-                    bottom3: $('#bottom3').val().toUpperCase(),
-                    words: words[0],
-                    cur: selectedLetters.join("")
-                };
-                const result = await validateValues();
-
-                const solveResponse = await fetch('/hint', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
-                    
-                const response = await solveResponse.json();
-                response.hint.forEach(letter =>  showHint(getSelectorByLetter(letter.toUpperCase())))
-            }
-            $('#hintButton').click(async function() {
-                removeHint()
-                const data = {
-                    top1: $('#top1').val().toUpperCase(),
-                    top2: $('#top2').val().toUpperCase(),
-                    top3: $('#top3').val().toUpperCase(),
-                    left1: $('#left1').val().toUpperCase(),
-                    left2: $('#left2').val().toUpperCase(),
-                    left3: $('#left3').val().toUpperCase(),
-                    right1: $('#right1').val().toUpperCase(),
-                    right2: $('#right2').val().toUpperCase(),
-                    right3: $('#right3').val().toUpperCase(),
-                    bottom1: $('#bottom1').val().toUpperCase(),
-                    bottom2: $('#bottom2').val().toUpperCase(),
-                    bottom3: $('#bottom3').val().toUpperCase(),
-                    words: words[0],
-                    cur: selectedLetters.join("")
-                };
-                const result = await validateValues();
-
-                const loadingMessage = document.getElementById('loading-message');
-                const resultDiv = document.getElementById('result');
-                console.log(JSON.stringify(data))
-                const solveResponse = await fetch('/hint', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
-                    
-                const response = await solveResponse.json();
-                if(response.hint.length == 0){
-                    alert("Can't find any valid next letters!")
-                }
-                console.log(response)
-                response.hint.forEach(letter =>  showHint(getSelectorByLetter(letter.toUpperCase())))
-            }) 
-            $('#generateButton').click(async function() {
-                console.log("Generating new grid")
-                console.log('showing loading overlay')
-                $('#loading-overlay').show();
-                try {
-                    await setGrid();
-                } finally {
-                    console.log("Hiding loading overlay")
-                    $('#loading-overlay').hide();
-                }
-            })
-
-            $('#solveButton').click(async function() {
-                removeHint()
-                await clearLines();
-                $('#loading-overlay').show();
-                try {
-                    const data = {
-                        top1: $('#top1').val().toUpperCase(),
-                        top2: $('#top2').val().toUpperCase(),
-                        top3: $('#top3').val().toUpperCase(),
-                        left1: $('#left1').val().toUpperCase(),
-                        left2: $('#left2').val().toUpperCase(),
-                        left3: $('#left3').val().toUpperCase(),
-                        right1: $('#right1').val().toUpperCase(),
-                        right2: $('#right2').val().toUpperCase(),
-                        right3: $('#right3').val().toUpperCase(),
-                        bottom1: $('#bottom1').val().toUpperCase(),
-                        bottom2: $('#bottom2').val().toUpperCase(),
-                        bottom3: $('#bottom3').val().toUpperCase()
-                    };
-                    console.log("WE ARE HERE!!!")
-                    console.log(window.recSol)
-                    if(window.recSol.length > 1){
-                        data['recSol'] = window.recSol
-                    }
-
-                    const result = await validateValues();
-
-                    const loadingMessage = document.getElementById('loading-message');
-                    const resultDiv = document.getElementById('result');
-
-                    const solveResponse = await fetch('/solve', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(data)
-                    });
-                        
-                    const response = await solveResponse.json();
-
-                    window.letterMap = setLetterMap();
-                    
-                    let solutionText = 'NYT Preferred Solution:\n';
-                    solutionText += `${response.solution[0][0]} -> ${response.solution[0][1]}\n\n`;
-                    solutionText += 'All Generated Solutions:\n';
-                    
-                    // Add other solutions starting from the second element
-                    for (let i = 1; i < response.solution.length; i++) {
-                        solutionText += `${response.solution[i][0]} -> ${response.solution[i][1]}\n`;
-                    }
-                    
-                    $('#solution').html(solutionText.replace(/\n/g, '<br>'));
-                    
-                    // Draw lines for preferred solution
-                    let preferred = response.solution[0];
-                    drawWords(preferred[0], preferred[1]);
-                    $('#solution').html(solutionText.replace(/\n/g, '<br>'));
-                } finally {
-                    $('#loading-overlay').hide();
-                }
-            }); 
-
-                // Initial load with NYT dictionary (true)
-            console.log("Initial load with NYT dictionary");
-            loadDictionary(true);
-
-            $("#playButton").click(async function () {
-                if(assist.checked){
-                    removeHint()
-                    getHint()
-                }
-                if (gameStarted) return; // Prevent multiple setups
-                gameStarted = true;
-                await validateValues();
-                // Freeze input boxes (make them read-only but still clickable)
-                $("input[type='text']").attr("readonly", true);
-
-                // Add event listener for assist checkbox
-                $("#assist").change(function() {
-                    if(this.checked) {
-                        getHint();
-                    } else {
-                        removeHint();
-                    }
-                });
-
-                // Create game buttons if they don't already exist
-                if (!$("#enterButton").length) {
-                    ["Enter", "Back", "Clear"].forEach(buttonText => {
-                        let button = $("<button>").text(buttonText).attr("id", buttonText.toLowerCase() + "Button");
-                        buttonContainer.append(button);
-                    });
-
-                    // Create display area for selected letters
-                    buttonContainer.append("<div id='selectedLetters'></div>");
-
-                    // Attach event listeners to new buttons
-                    $("#backButton").click(function () {
-                        if (selectedLetters.length > 0) {
-                            selectedLetters.pop();
-                            updateSelectedLettersDisplay();
-                        }
-                        console.log(words)
-                        if(selectedLetters.length == 0){
-                            if(words.length > 0){
-                                let word = words.pop()
-                                for (let i = 0; i < word.length; i++) {
-                                    selectedLetters.push(word[i])
+                        // Fill text boxes with sides
+                        if (response.sides) {
+                            const ids = [
+                                ['top1', 'top2', 'top3'],
+                                ['left1', 'left2', 'left3'],
+                                ['right1', 'right2', 'right3'],
+                                ['bottom1', 'bottom2', 'bottom3']
+                            ];
+                            for (let i = 0; i < 4; i++) {
+                                for (let j = 0; j < 3; j++) {
+                                    $('#' + ids[i][j]).val(response.sides[i][j]);
                                 }
-                                updateSelectedLettersDisplay();
                             }
                         }
-                        if(selectedLetters.length > 0){
-                            let resetSide = getSelectorByLetter(selectedLetters[[selectedLetters.length - 1]])
-                            let sideMatch = resetSide.match(/top|bottom|left|right/);
-                            let side = sideMatch[0];
-                            lastSide = side;
+                        // Store trie as JS object
+                        if (response.trie) {
+                            window.trie = response.trie;
+                            // You can now use window.trie in your JS code
+                            console.log('Trie loaded:', window.trie);
                         }
-                        if(assist.checked){
-                            removeHint()
-                            getHint()
-                        }
-                    });
-                    
-                    $("#clearButton").click(async function () {
-                        removeHint()
-                        selectedLetters = [];
-                        words = [];
-                        lastSide = null;
-                        updateSelectedLettersDisplay();
-                        await clearLines();
-                        if(assist.checked){
-                            getHint()
-                        }
-                    });
+                    },
+                    error: function() {
+                        $('#solution').text('Error loading puzzle data');
+                    }
+                });
+            });
+            // Clear button: resets selection
+            console.log("do we just enter randomly?")
+            $('#clearSelection').on('click', function() {
+                console.log('clear 3 started');
+                clearSelectionFunctionThree();
+                console.log('clear 3 finished')
+            });
+            function clearSelectionFunctionOne() {
+                debugger; // Add a debugger statement here
+                console.log("=== CLEAR FUNCTION 1 START ===");
+                console.trace("Clear function call stack");
+                console.log("Current state before clear:");
+                console.log("selectedLetters:", selectedLetters.slice());
+                console.log("selectedSides:", selectedSides.slice());
+                console.log("selectedLettersArray:", selectedLettersArray.slice());
+                console.log("selectedSidesArray:", selectedSidesArray.slice());
+                
+                selectedLetters = [];
+                selectedSides = [];
+                selectedLettersArray = [];
+                selectedSidesArray = [];
+                updateSelectedLettersDisplay();
+                window.disable = false;
+                
+                console.log("=== CLEAR FUNCTION END ===");
+            }
+            function clearSelectionFunctionTwo() {
+                debugger; // Add a debugger statement here
+                console.log("=== CLEAR FUNCTION  2 START ===");
+                console.trace("Clear function call stack");
+                console.log("Current state before clear:");
+                console.log("selectedLetters:", selectedLetters.slice());
+                console.log("selectedSides:", selectedSides.slice());
+                console.log("selectedLettersArray:", selectedLettersArray.slice());
+                console.log("selectedSidesArray:", selectedSidesArray.slice());
 
-                    $("#enterButton").click(async function () {
-                        removeHint()
-                        let word = selectedLetters.join("");
-                        const response = await fetch('/validate_word', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({"word" : word})
+                selectedLetters = [];
+                selectedSides = [];
+                selectedLettersArray = [];
+                selectedSidesArray = [];
+                updateSelectedLettersDisplay();
+                window.disable = false;
+
+                console.log("=== CLEAR FUNCTION END ===");
+            }
+            function clearSelectionFunctionThree() {
+                debugger; // Add a debugger statement here
+                console.log("=== CLEAR FUNCTION 3 START ===");
+                console.trace("Clear function call stack");
+                console.log("Current state before clear:");
+                console.log("selectedLetters:", selectedLetters.slice());
+                console.log("selectedSides:", selectedSides.slice());
+                console.log("selectedLettersArray:", selectedLettersArray.slice());
+                console.log("selectedSidesArray:", selectedSidesArray.slice());
+
+                selectedLetters = [];
+                selectedSides = [];
+                selectedLettersArray = [];
+                selectedSidesArray = [];
+                updateSelectedLettersDisplay();
+                window.disable = false;
+
+                console.log("=== CLEAR FUNCTION END ===");
+            }
+
+            function findAllSolutions(){
+                if (!window.trie) return [];
+                let results = [];
+
+
+            }
+
+            $('#solveButton').on('click', function() {
+                window.disable = true;
+                let trie = window.trie;
+                // Gather grid letters from inputs to match Python structure
+                const data = {
+                    top1: $('#top1').val(),
+                    top2: $('#top2').val(),
+                    top3: $('#top3').val(),
+                    left1: $('#left1').val(),
+                    left2: $('#left2').val(),
+                    left3: $('#left3').val(),
+                    right1: $('#right1').val(),
+                    right2: $('#right2').val(),
+                    right3: $('#right3').val(),
+                    bottom1: $('#bottom1').val(),
+                    bottom2: $('#bottom2').val(),
+                    bottom3: $('#bottom3').val(),
+                    trie: trie
+                };
+                console.log(window.solution)
+                selectedLetters = [];
+                selectedSides = [];
+                selectedLettersArray = [];
+                selectedSidesArray = [];
+                let solRec = window.solution
+                solRec.forEach(word => {
+                    selectedLettersArray.push(word.split(''));
+                });
+
+                updateSelectedLettersDisplay();
+                $.ajax({
+                    url: '/solve_puzzle',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function(response) {
+                        console.log('Solve response:', response);
+                        let sols = response.solution
+                        // response is an array of arrays, each with two words
+                        if (Array.isArray(sols) && sols.length > 0) {
+                            let html = '<h3>All Solutions:</h3><ul style="list-style:none;padding:0;">';
+                            sols.forEach(function(pair, index) {
+                                html += `<li class="solution-pair" data-index="${index}" style="cursor:pointer; padding:5px; margin:2px 0; border-radius:3px; transition:background-color 0.2s;">
+                                            <span class="word1">${pair[0]}</span> &nbsp; <span class="word2">${pair[1]}</span>
+                                        </li>`;
                             });
-                        wordVal = await response.json();
-                        if(wordVal.valid){
-                            const numberLetters = new Set(words.join(""));
-                            // Add selectedLetters to the set
-                            selectedLetters.forEach(letter => numberLetters.add(letter));
-                            if(numberLetters.size == 12){
-                                updateSelectedLettersDisplay();
-                                alert('You win!')
-                            }
-                            else{
-                                words.push(selectedLetters.join(""))
-                                selectedLetters = [selectedLetters[selectedLetters.length - 1]];
-                                lastSide = null;
-                                updateSelectedLettersDisplay();
-                            }
+                            html += '</ul>';
+                            $('#solution').html(html).css('color', '');
+                            
+                            // Add click event handlers to each pair
+                            $('.solution-pair').on('click', function() {
+                                const index = $(this).data('index');
+                                const selectedPair = sols[index];
+                                handlePairClick(selectedPair);
+                                
+                                // Optional: Add visual feedback
+                                $('.solution-pair').removeClass('selected');
+                                $(this).addClass('selected');
+                            });
+                            
+                            // Optional: Add hover effects
+                            $('.solution-pair').hover(
+                                function() {
+                                    $(this).css('background-color', '#f0f0f0');
+                                },
+                                function() {
+                                    if (!$(this).hasClass('selected')) {
+                                        $(this).css('background-color', '');
+                                    }
+                                }
+                            );
+                            } else {
+                            $('#solution').html('No solutions found.').css('color', 'red');
+                        }
+                    },
+                    error: function() {
+                        $('#solution').text('Error loading puzzle data').css('color', 'red');
+                    }
+                });
+            });
+            // Back button: removes last letter
+            $('#backSelection').on('click', function() {
+                if(window.disable) return;
+                console.log('Back button clicked');
+                if(selectedLetters.length===1 && selectedLettersArray.length>0){
+                    selectedLetters = selectedLettersArray.pop();
+                    selectedSides = selectedSidesArray.pop();
+                    selectedLetters.pop();
+                    selectedSides.pop();
+                    updateSelectedLettersDisplay();
+                }
+                else{
+                    selectedLetters.pop();
+                    selectedSides.pop();
+                    updateSelectedLettersDisplay();
+                }
+            });
+            function handlePairClick(selectedPair){
+                console.log('Pair clicked:', selectedPair);
+                selectedLettersArray = [];
+                selectedSidesArray = [];
+                selectedLetters = [];
+                selectedSides = [];
+                selectedPair.forEach(word => {
+                    word.toUpperCase();  
+                    selectedLettersArray.push(word.split(''));
+                });
+                updateSelectedLettersDisplay();
+            }
+
+            function checkForWin() {
+                // Get all 12 grid letters
+                const gridIds = [
+                    'top1', 'top2', 'top3',
+                    'left1', 'left2', 'left3',
+                    'right1', 'right2', 'right3',
+                    'bottom1', 'bottom2', 'bottom3'
+                ];
+                const gridLetters = gridIds.map(id => $('#' + id).val().toUpperCase());
+
+                // Gather all used letters (selectedLetters + all in selectedLettersArray)
+                let usedLetters = [...selectedLetters];
+                selectedLettersArray.forEach(arr => {
+                    usedLetters = usedLetters.concat(arr);
+                });
+                usedLetters = usedLetters.map(l => l.toUpperCase());
+                console.log(usedLetters)
+                // Check if every grid letter is present in usedLetters
+                return gridLetters.every(letter => usedLetters.includes(letter));
+            }
+
+
+            // Enter button: logs the current word and checks validity
+            $('#enterSelection').on('click', function() {
+                if(window.disable) return;
+                if (selectedLetters.length > 0) {
+                    const word = selectedLetters.join('');
+                    // Check if word is valid using searchWord
+                    let isValid = false;
+                    if (window.trie) {
+                        isValid = searchWord(window.trie, word.toLowerCase());
+                        console.log(isValid)
+                    }
+                    if (isValid) {
+                        console.log('Entered valid word:', word);
+                        $('#solution').text('Valid word: ' + word).css('color', '#4CAF50');
+                        // Check for win condition
+                        if (checkForWin()) {
+                            console.log("won")
+                            window.disable = true;
+                            $('#solution').text('Congratulations! You solved the puzzle in ' + (selectedLettersArray.length + 1) + ' words').css('color', '#FFD700');
                         }
                         else{
-                            alert("That word's not in our dictionary!");
+                            selectedLettersArray.push(selectedLetters);
+                            selectedSidesArray.push(selectedSides);
+                            selectedLetters = [selectedLetters[selectedLetters.length - 1]];
+                            selectedSides = [selectedSides[selectedSides.length - 1]];
                         }
-                        if(assist.checked){
-                            removeHint()
-                            getHint()
-                        }
-                    });
+                    } else {
+                        console.log('Invalid word:', word);
+                        $('#solution').text('Invalid word: ' + word).css('color', 'red');
+                    }
+                    console.log(selectedLettersArray);
+                    console.log(selectedLetters);
+                    console.log(selectedSidesArray);
+                    console.log(selectedSides);
+                    updateSelectedLettersDisplay();
+                    console.log('After enter, current selection:', selectedLetters.join(''))
                 }
-                $("#enterButton, #backButton, #clearButton").show();
+                console.log('End of enter processing');
             });
-            async function updateSelectedLettersDisplay() {
-                await clearLines();
-                if(words.length > 0){
-                    let word1 = words[0]
-                    if(word1.length == 1){
-                        console.log("___________________")
-                        console.log(word1)
-                        console.log(word1[0].toUpperCase())
-                        console.log(getSelectorByLetter(word1[0].toUpperCase()))
-                        simpleBackgroundChange($(getSelectorByLetter(word1[0].toUpperCase())),'#4CAF50')
-                    }
-                    words.forEach(word1 => {
-                        for (let j = 1; j < word1.length; j++) {
-                            let first = getSelectorByLetter(word1[j-1].toUpperCase());
-                            let second = getSelectorByLetter(word1[j].toUpperCase());
-                            let isFirst = j == 1;
-                            drawLine($(first), $(second), '#4CAF50', 0, isFirst, j); // Green for word one
-                        }
-                    })
-                }
-                let forPres = ""
-                if(words.length > 0){
-                    forPres = words.join(" ")+" "
-                }
-                forPres = forPres+selectedLetters.join("")
-                $("#selectedLetters").text(forPres)
-                // $("#selectedLetters").text(selectedLetters.join(""));
-                let word1 = selectedLetters.join("")
-                if(word1.length == 1){
 
-                    simpleBackgroundChange($(getSelectorByLetter(word1[0].toUpperCase())),'#ADD8E6')
-                }
-                for (let j = 1; j < word1.length; j++) {
-                    let first = getSelectorByLetter(word1[j-1].toUpperCase());
-                    let second = getSelectorByLetter(word1[j].toUpperCase());
-                    let isFirst = j == 1;
-                    drawLine($(first), $(second), '#ADD8E6', 0, isFirst, j); // Green for word one
-                }
+            function getSideIndex(inputId) {
+                if (inputId.startsWith('top')) return 0;
+                if (inputId.startsWith('left')) return 1;
+                if (inputId.startsWith('right')) return 2;
+                if (inputId.startsWith('bottom')) return 3;
+                return -1;
             }
-            async function setGrid() {
-                $('#loading-overlay').show();
-                try {
-                    const response = await $.ajax({
-                        url: '/new_grid',
-                        type: 'GET',
-                        contentType: 'application/json'
-                    });
-                    
-                    if (response.grid) {
-                        console.log(response.letters)
-                        const lists = response.grid;
-                        if(response.solution){
-                            window.recSol = response.solution
-                        }
-                        
-                        const letterMap = {};
 
-                        // Fill top row
-                        $('#top1').val(lists[0][0]); letterMap[lists[0][0]] = '#top1';
-                        $('#top2').val(lists[0][1]); letterMap[lists[0][1]] = '#top2';
-                        $('#top3').val(lists[0][2]); letterMap[lists[0][2]] = '#top3';
 
-                        // Fill left side
-                        $('#left1').val(lists[1][0]); letterMap[lists[1][0]] = '#left1';
-                        $('#left2').val(lists[1][1]); letterMap[lists[1][1]] = '#left2';
-                        $('#left3').val(lists[1][2]); letterMap[lists[1][2]] = '#left3';
 
-                        // Fill right side
-                        $('#right1').val(lists[2][0]); letterMap[lists[2][0]] = '#right1';
-                        $('#right2').val(lists[2][1]); letterMap[lists[2][1]] = '#right2';
-                        $('#right3').val(lists[2][2]); letterMap[lists[2][2]] = '#right3';
+            // Display selected letters
+            function updateSelectedLettersDisplay() {
+                console.log(selectedLetters);
+                console.log(selectedLettersArray);
+                let gridIds = [
+                    'top1', 'top2', 'top3',
+                    'left1', 'left2', 'left3',
+                    'right1', 'right2', 'right3',
+                    'bottom1', 'bottom2', 'bottom3'
+                ];
 
-                        // Fill bottom row
-                        $('#bottom1').val(lists[3][0]); letterMap[lists[3][0]] = '#bottom1';
-                        $('#bottom2').val(lists[3][1]); letterMap[lists[3][1]] = '#bottom2';
-                        $('#bottom3').val(lists[3][2]); letterMap[lists[3][2]] = '#bottom3';
+                // Build sets for quick lookup
+                let selectedSet = new Set(selectedLetters.map(l => l.toUpperCase()));
+                let arraySet = new Set();
+                selectedLettersArray.forEach(arr => {
+                    arr.forEach(l => arraySet.add(l.toUpperCase()));
+                });
 
-                        // Store the map globally for later access
-                        window.letterMap = setLetterMap()
-                        
-                        // Clear any existing display
-                        await clearLines();
-                        selectedLetters = [];
-                        words = [];
-                        lastSide = null;
-                        updateSelectedLettersDisplay();
+                // Update input backgrounds
+                gridIds.forEach(id => {
+                    let $input = $('#' + id);
+                    let val = $input.val().toUpperCase();
+                    $input.removeClass('highlight-blue highlight-gray');
+                    if (selectedSet.has(val)) {
+                        $input.addClass('highlight-blue');
+                    } else if (arraySet.has(val)) {
+                        $input.addClass('highlight-gray');
                     }
-                } catch (error) {
-                    $('#solution').text('Error generating letters');
-                } finally {
-                    $('#loading-overlay').hide();
+                });
+
+                // Add highlight-gray style if not present
+                if ($('style').text().indexOf('.highlight-gray') === -1) {
+                    $('<style>.highlight-gray{background-color:#e0e0e0;border-color:#e0e0e0;color:#333;}</style>').appendTo('head');
                 }
+                if ($('#selectedLetters').length === 0) {
+                    $('<div id="selectedLetters" style="margin-top:20px;font-size:24px;font-weight:bold;"></div>').insertAfter('.square-container');
+                }
+                $('#selectedLetters').text(selectedLetters.join(''));
+                let allWords = selectedLettersArray.map(arr => arr.join('')).join(' ');
+                let currentWord = selectedLetters.join('');
+                let displayText = [allWords, currentWord].filter(Boolean).join(' ');
+                $('#selectedLetters').text(displayText);
+                // Draw lines connecting letters
+                let $svg = $('#lineContainer');
+                $svg.empty();
+
+                // Helper to get center coordinates of an input
+                function getInputCenter(id) {
+                    if (!id) return {x: 0, y: 0};
+                    let $input = $('#' + id);
+                    let offset = $input.offset();
+                    let parentOffset = $svg.parent().offset();
+                    if (!offset || !parentOffset) {
+                        return {x: 0, y: 0};
+                    }
+                    let x, y;
+                    let width = $input.outerWidth();
+                    let height = $input.outerHeight();
+
+                    // Determine position based on input id
+                    if (id.startsWith('left')) {
+                        // Center right
+                        x = offset.left - parentOffset.left + width;
+                        y = offset.top - parentOffset.top + height / 2;
+                    } else if (id.startsWith('right')) {
+                        // Center left
+                        x = offset.left - parentOffset.left;
+                        y = offset.top - parentOffset.top + height / 2;
+                    } else if (id.startsWith('top')) {
+                        // Center bottom
+                        x = offset.left - parentOffset.left + width / 2;
+                        y = offset.top - parentOffset.top + height;
+                    } else if (id.startsWith('bottom')) {
+                        // Center top
+                        x = offset.left - parentOffset.left + width / 2;
+                        y = offset.top - parentOffset.top;
+                    } else {
+                        // Default to center
+                        x = offset.left - parentOffset.left + width / 2;
+                        y = offset.top - parentOffset.top + height / 2;
+                    }
+                    return {x, y};
+                }
+
+                // Map letter to input id (first match)
+                function letterToId(letter, usedIds) {
+                    letter = letter.toUpperCase();
+                    for (let id of gridIds) {
+                        if ($('#' + id).val().toUpperCase() === letter) {
+                            return id;
+                        }
+                    }
+                    return null;
+                }
+
+                // Draw gray lines for selectedLettersArray
+                let usedIdsGray = new Set();
+
+                selectedLettersArray.forEach(arr => {
+                    let prevId = null; // Reset for each word
+                    for(let i = 1; i < arr.length; i++){
+                        console.log("Drawing line for letter pair: " + arr[i-1] + " to " + arr[i]);
+                        let p1 = getInputCenter(letterToId(arr[i-1], usedIdsGray));
+                        let p2 = getInputCenter(letterToId(arr[i], usedIdsGray));
+                        let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        line.setAttribute("x1", p1.x);
+                        line.setAttribute("y1", p1.y);
+                        line.setAttribute("x2", p2.x);
+                        line.setAttribute("y2", p2.y);
+                        line.setAttribute("stroke", "#888");
+                        line.setAttribute("stroke-width", "5");
+                        line.setAttribute("stroke-linecap", "round");
+                        $svg[0].appendChild(line);
+                    }
+                });
+
+                // Draw blue lines for selectedLetters
+                let usedIdsBlue = new Set();
+                prevId = null;
+                selectedLetters.forEach(letter => {
+                    let id = letterToId(letter, usedIdsBlue);
+                    if (prevId && id) {
+                        let p1 = getInputCenter(prevId);
+                        let p2 = getInputCenter(id);
+                        let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        line.setAttribute("x1", p1.x);
+                        line.setAttribute("y1", p1.y);
+                        line.setAttribute("x2", p2.x);
+                        line.setAttribute("y2", p2.y);
+                        line.setAttribute("stroke", "#2196F3");
+                        line.setAttribute("stroke-width", "5");
+                        line.setAttribute("stroke-linecap", "round");
+                        $svg[0].appendChild(line);
+                    }
+                    prevId = id;
+                });
+                console.log('Updated selected letters display');
             }
-       });
+
+            // Handle letter click
+            $("input[type='text']").on("click", function() {
+                const letter = $(this).val();
+                const side = getSideIndex(this.id);
+
+                // Prevent selecting two consecutive letters from the same side
+                if (selectedSides.length > 0 && selectedSides[selectedSides.length - 1] === side) {
+                    return; // Ignore click
+                }
+                selectedLetters.push(letter);
+                selectedSides.push(side);
+                updateSelectedLettersDisplay();
+            });
+
+            // Handle keyboard input
+            $(document).on("keydown", function(e) {
+                if(window.disable) return;
+                console.log('Key pressed:', e.key);
+                const key = e.key.toUpperCase();
+                console.log(key)
+                // Enter key triggers "Enter" button
+                if (e.key === "Enter") {
+                    e.preventDefault(); // Prevent default behavior (e.g., form submission)
+                    e.stopPropagation(); // Stop event from bubbling to other handlers
+                    $('#enterSelection').click();
+                    return;
+                }
+                console.log(e.key)
+                // Backspace or Delete triggers "Back" button
+                if (e.key === "Backspace" || e.key === "Delete") {
+                    $('#backSelection').click();
+                    return;
+                }
+
+                $("input[type='text']").each(function() {
+                    if ($(this).val().toUpperCase() === key) {
+                        const side = getSideIndex(this.id);
+                        if (selectedSides.length === 0 || selectedSides[selectedSides.length - 1] !== side) {
+                            selectedLetters.push(key);
+                            selectedSides.push(side);
+                            updateSelectedLettersDisplay();
+                            return false; // break loop
+                        }
+                    }
+                });
+            });
+            function searchWord(trie, word) {
+                let current = trie;
+                
+                for (let char of word) {
+                    if (!current.children[char]) {
+                        return false; // Word not found
+                    }
+                    current = current.children[char];
+                }
+                
+                return current.is_end_of_word;
+            }
+
+        });
+        
     </script>
 </body>
 </html>

@@ -2,6 +2,7 @@ import json
 
 
 import os
+import time
 from bs4 import BeautifulSoup
 from utils.UndirectedGraph import UndirectedGraph
 from utils.GetDictionary import getNYTData
@@ -13,100 +14,40 @@ import utils.GetDictionary as GetDictionary
 import utils.Solver as Solver
 import utils.gridGenerator as gridGenerator
 
-'''print('tree loading')
-new_trie = trieClass.load_trie_json('betterWords.json')
-print('tree loaded')''' 
-global small_trie
-global large_trie
-global using_small
-
-global recommendedSol
-global current_dictionary
-recommendedSol = ""
-current_dictionary = {}
-current_date = ''
-metaDat = GetDictionary.getDict(True)
-#automatically set small trie to todays trie
-small_trie = Trie()
-#automatically load large_trie
-large_trie = GetDictionary.getDict(False)['trie']
-#defaul will assume today's trie
-using_small = False
-
-
-
-global g
-global letterSet
-g = UndirectedGraph()
-letterSet = set()
 
 from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__,static_folder='.')
+global large_trie
+large_trie = GetDictionary.getDict(False)['trie']
 
-
-@app.route('/load_dictionary', methods=['POST'])
-def run_process():
-    return jsonify("Don't need this")
-
-@app.route('/validate', methods=['POST'])
-def validate():
-    # Get the data from the JavaScript frontend
-    global current_dictionary
-    global using_small
-
-    client_data = request.json
-        
-    nytDat = current_dictionary
-    if 'sides' not in nytDat:
-        using_small = False
-        return jsonify({
-            'all_match': False,
-        })
-    # Generate the expected values
-    #nytDat = getNYTData()
-    expected_values =  []
-    for element in nytDat['sides']:
-        for letter in element:
-            expected_values.append(letter)
-        
-    # Format client data to match expected values format
-    client_values = [
-        client_data.get('top1', ''),
-        client_data.get('top2', ''),
-        client_data.get('top3', ''),
-        client_data.get('left1', ''),
-        client_data.get('left2', ''),
-        client_data.get('left3', ''),
-        client_data.get('right1', ''),
-        client_data.get('right2', ''),
-        client_data.get('right3', ''),
-        client_data.get('bottom1', ''),
-        client_data.get('bottom2', ''),
-        client_data.get('bottom3', '')
-    ]
-
-    all_match = client_values == expected_values
-    if all_match and 'dictionary' in nytDat:
-        using_small = True
-    else:
-        using_small = False
-    print(jsonify({
-        'all_match': all_match,
-    }))
-    return jsonify({
-        'all_match': all_match,
-    })
+def processDate(date):
+    global large_trie
+    outDict = {}
+    with open('nyt_data.json', 'r') as f:
+        dates_data = json.load(f)
+        final =  [list(element) for element in dates_data[date]['sides']]
+        print(dates_data[date].keys())
+        if "dictionary" in dates_data[date]:
+            print("using new dictionary")
+            small_trie = Trie()
+            trieClass.load_python_list_into_trie(dates_data[date]["dictionary"], small_trie)
+            outDict = small_trie.trie_to_dict()
+        else:
+            print('starting timer')
+            t1 = time.time()
+            if "outSolution" in dates_data[date]:
+                for element in dates_data[date]["outSolution"]:
+                    large_trie.insert(element)
+            outTrie = large_trie.trim_trie_to_grid(final)
+            outDict = outTrie.trie_to_dict()
+            t2 = time.time()
+            print("Elapsed time:", t2 - t1, "seconds")
+        return {"sides" : final, "trie" : outDict, "solution" : dates_data[date]["outSolution"]}
 
 @app.route('/')
 def home():
     return render_template('index.html')
-
-@app.route('/generate', methods=['GET'])
-def generate():
-    nytDat = getNYTData()
-    final =  [list(element) for element in nytDat['sides']]
-    return jsonify({'letters': final})
 
 @app.route('/get_dates')
 def get_dates():
@@ -115,112 +56,61 @@ def get_dates():
         bob = dates_data.keys()
     return jsonify(dates_data)
 
-def processDate(date):
-    global small_trie
-    global using_small
-    global large_trie
-    global current_dictionary
-    with open('nyt_data.json', 'r') as f:
-        dates_data = json.load(f)
-        final =  [list(element) for element in dates_data[date]['sides']]
-        current_dictionary = dates_data[date]
-        print(dates_data[date].keys())
-        if "dictionary" in dates_data[date]:
-            print("using new dictionary")
-            small_trie = Trie()
-            trieClass.load_python_list_into_trie(dates_data[date]["dictionary"], small_trie)
-            using_small = True
-        else:
-            if "outSolution" in dates_data[date]:
-                for element in dates_data[date]["outSolution"]:
-                    large_trie.insert(element)
-            using_small = False
-        return final
+@app.route('/get_puzzle_data', methods=['POST'])
+def get_puzzle_data():
+    req = request.get_json()
+    date = req['date']
+    returnDict = processDate(date)
+    print("returning", returnDict.keys())
+    sides = returnDict['sides']
+    trie = returnDict['trie'] 
+    solution = returnDict['solution']
 
-@app.route('/process_date', methods=['POST'])
-def process_date():
-    data = request.json
-    selected_date = data.get('date')
-    sides = processDate(selected_date)
-    return jsonify({'letters': sides})
-
-
-@app.route('/validate_word', methods=['POST'])  
-def checkWord():
-    word = request.get_json().get("word")
-    word = word.lower()
-    if using_small:
-        test = small_trie.search(word)
-    else:
-        test = large_trie.search(word)
-
+    # Generate sides, solution, trie for the given date
     return jsonify({
-        'valid': test
+        "sides": sides,
+        "trie": trie,
+        "solution":  solution
     })
 
-
-@app.route('/hint', methods=['POST'])
-def hint():
-    global using_small
-    global small_trie
+@app.route('/generate_grid', methods=['GET'])
+def generate_grid():
     global large_trie
-    global current_dictionary
+    print('in here!!!')
+    res = gridGenerator.generateGrid()
+    print("finished generating")
+    print(res)
+    print("------------")
+    sides = res[0]
+    solution = res[1]
+    outTrie = large_trie.trim_trie_to_grid(sides)
+    outDict = outTrie.trie_to_dict()
+    return jsonify({'sides': sides, 'trie': outDict, 'solution': solution})
 
-    global recommendedSol
-    data = request.get_json()
-    top_letters = [data['top1'], data['top2'], data['top3']]
-    left_letters = [data['left1'], data['left2'], data['left3']]
-    right_letters = [data['right1'], data['right2'], data['right3']]
-    bottom_letters = [data['bottom1'], data['bottom2'], data['bottom3']]
-    
-    letters = [top_letters, left_letters, right_letters, bottom_letters]
-    prefix = data['cur'].lower()
-    outHint = []
-    if using_small:
-        recommendedSol = current_dictionary['outSolution']
-        if "dictionary" in current_dictionary:
-            outHint = small_trie.get_children(prefix)
-        else:
-            outHint = large_trie.get_children(prefix)
-    else:
-        outHint = large_trie.get_children(prefix)
-    print(outHint)
-    return jsonify({'hint': outHint})
-
-@app.route('/solve', methods=['POST'])
+@app.route('/solve_puzzle', methods=['POST'])
 def solve():
-    global using_small
-    global small_trie
-    global large_trie
-    global current_dictionary
-
-    global recommendedSol
-    recom = ''
+    print('we have entered!')
     data = request.get_json()
+    jsTree = data['trie']
+    pyTree = Trie()
+    t1 = time.time()
+    pyTree.dict_to_trie(jsTree)
+    t2 = time.time()
+    print("Time to rebuild tree:", t2 - t1, "seconds")
     top_letters = [data['top1'], data['top2'], data['top3']]
     left_letters = [data['left1'], data['left2'], data['left3']]
     right_letters = [data['right1'], data['right2'], data['right3']]
     bottom_letters = [data['bottom1'], data['bottom2'], data['bottom3']]
     
     letters = [top_letters, left_letters, right_letters, bottom_letters]
-    if using_small:
-        recommendedSol = current_dictionary['outSolution']
-        if "dictionary" in current_dictionary:
-            solution = Solver.getSolutions(letters, small_trie, recommendedSol)
-        else:
-            solution = Solver.getSolutions(letters, large_trie, recommendedSol)
-    else:
-        print("HERE WE ARE ")
-        print(recom)
-        solution = Solver.getSolutions(letters, large_trie, recom)
+    t3 = time.time()
+    solution = Solver.getSolutions(letters, pyTree)
+    t4 = time.time()
+    print("Time to solve:", t4 - t3, "seconds")
     return jsonify({'solution': solution})
 
-@app.route('/new_grid', methods=['GET'])
-def new_grid():
-    res = gridGenerator.generateGrid()
-    return jsonify({'grid': res[0], 'solution':res[1]})
 
 if __name__ == "__main__":
-    # port = int(os.environ.get("PORT", 5000))
-    # app.run(host="0.0.0.0", port=port)
-    app.run()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+    #app.run()
